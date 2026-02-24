@@ -1,0 +1,27 @@
+# NiftyTrader - Python Requirements
+# Advanced Nifty Market Analysis Dashboard
+
+# Core Dependencies
+Flask==2.3.3
+Flask-SocketIO==5.3.4
+
+# HTTP Requests & API Communication
+requests==2.31.0
+
+# Data Processing & Analysis
+pandas==2.0.3
+numpy==1.24.3
+scipy==1.11.2
+
+# Utilities
+python-dotenv==1.0.0
+
+# Optional: For production deployment
+# gunicorn==21.2.0
+# gevent==23.9.1
+# gevent-websocket==0.10.1
+
+# Optional: Development & Testing
+# pytest==7.4.0
+# black==23.9.1
+# flake8==6.0.0

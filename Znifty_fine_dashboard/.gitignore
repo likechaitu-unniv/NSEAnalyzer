@@ -1,0 +1,74 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Flask
+instance/
+.webassets-cache
+
+# Data & Logs
+data/trend_history*.json
+data/archive-data/
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Development
+*.tmp
+*.bak
+*.backup
+
+# Environment specific
+.env.local
+.env.*.local
+
+# Node modules (for frontend dependencies if added)
+node_modules/

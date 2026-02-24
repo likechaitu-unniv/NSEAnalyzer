@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NiftyTrader - Market Analysis Dashboard{% endblock %}</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="Advanced Nifty 50 market analysis dashboard with real-time data and trends analysis">
+    <meta name="author" content="NiftyTrader">
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <h1>📊 NiftyTrader</h1>
+                <p class="tagline">Market Analysis Dashboard</p>
+            </div>
+            
+            <ul class="navbar-menu">
+                <li><a href="{{ url_for('main.home') }}" class="nav-link {% if 'home' in request.path or request.path == '/' %}active{% endif %}">Home</a></li>
+                <li><a href="{{ url_for('dashboard.index') }}" class="nav-link {% if 'dashboard' in request.path %}active{% endif %}">Dashboard</a></li>
+                <li><a href="{{ url_for('trends.index') }}" class="nav-link {% if 'trends' in request.path %}active{% endif %}">Trends</a></li>
+                <li><a href="{{ url_for('guide.index') }}" class="nav-link {% if 'guide' in request.path %}active{% endif %}">Guide</a></li>
+                <li><a href="{{ url_for('main.about') }}" class="nav-link {% if 'about' in request.path %}active{% endif %}">About</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2026 NiftyTrader | Advanced Market Analysis</p>
+            <p class="footer-info">Real-time NSE Data | Risk Disclaimer: For educational purposes only</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

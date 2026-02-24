@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSE Nifty 50 Market Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+        }
+
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #38ef7d;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .refresh-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .timestamp {
+            text-align: right;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-trend {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-bull {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .card-bear {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .card-insights {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .card-title {
+            font-size: 1em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .card-subtitle {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: #667eea;
+            color: white;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            transition: background 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .positive {
+            color: #38ef7d;
+            font-weight: 600;
+        }
+
+        .negative {
+            color: #eb3349;
+            font-weight: 600;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .movers-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .mover-item {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 15px;
+            align-items: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .mover-symbol {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .mover-weight {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .mover-change {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .mover-direction {
+            font-size: 0.9em;
+        }
+
+        .gainers-losers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .list-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .symbol {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .sortable-header {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px;
+        }
+
+        .sortable-header:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sortable-header::after {
+            content: '⇅';
+            position: absolute;
+            right: 8px;
+            opacity: 0.5;
+        }
+
+        .sortable-header.asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+
+        .sortable-header.desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .insight-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .insight-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 5px 0;
+        }
+
+        .insight-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .trading-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .trading-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .phase-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .risk-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .risk-low { background: #38ef7d; color: white; }
+        .risk-medium { background: #ffd93d; color: #333; }
+        .risk-high { background: #eb3349; color: white; }
+
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .strategy-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .strategy-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .strategy-description {
+            font-size: 0.95em;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            opacity: 0.95;
+        }
+
+        .strategy-detail {
+            font-size: 0.85em;
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+        }
+
+        .warnings-box {
+            background: rgba(255, 235, 59, 0.2);
+            border-left: 4px solid #ffd93d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .warning-item {
+            margin: 8px 0;
+            font-size: 0.95em;
+        }
+
+        .recommendations-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .recommendation-item {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+            font-size: 0.9em;
+        }
+
+        .recommendation-item::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .tabs-container {
+            margin-bottom: 25px;
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 12px 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-button:hover {
+            color: #667eea;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .info-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-card li:last-child {
+            border-bottom: none;
+        }
+
+        .info-card strong {
+            color: #333;
+        }
+
+        .strategy-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .strategy-info h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .gainers-losers {
+                grid-template-columns: 1fr;
+            }
+
+            .mover-item {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.5em;
+            }
+
+            .card-value {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 NSE Nifty 50 Market Analyzer</h1>
+            <div class="header-controls">
+                <div class="auto-refresh-toggle">
+                    <span>Auto-refresh (60s)</span>
+                    <div class="toggle-switch active" id="auto-refresh-toggle" onclick="toggleAutoRefresh()">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+                <button class="refresh-btn" onclick="loadData()">
+                    <span id="refresh-icon">🔄</span> Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading market data...</p>
+        </div>
+
+        <div id="content" class="content" style="display: none;">
+            <div class="timestamp" id="timestamp"></div>
+
+            <!-- Market Overview Cards -->
+            <div class="cards-grid">
+                <div class="card card-trend">
+                    <div class="card-title">📈 Market Trend</div>
+                    <div class="card-value" id="trend-value">-</div>
+                    <div class="card-subtitle" id="trend-subtitle">-</div>
+                </div>
+
+                <div class="card card-bull">
+                    <div class="card-title">🐂 Bull Power</div>
+                    <div class="card-value" id="bull-value">-</div>
+                    <div class="card-subtitle" id="bull-subtitle">-</div>
+                </div>
+
+                <div class="card card-bear">
+                    <div class="card-title">🐻 Bear Power</div>
+                    <div class="card-value" id="bear-value">-</div>
+                    <div class="card-subtitle" id="bear-subtitle">-</div>
+                </div>
+            </div>
+
+            <!-- Market Insights Section -->
+            <div class="section">
+                <div class="section-title">💡 Market Insights</div>
+                <div class="insights-grid">
+                    <div class="insight-item">
+                        <div class="insight-label">Market Sentiment</div>
+                        <div class="insight-value" id="sentiment-value">-</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Market Breadth</div>
+                        <div class="insight-value" id="breadth-value">-</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Avg Volatility</div>
+                        <div class="insight-value" id="volatility-value">-</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Strong Gainers</div>
+                        <div class="insight-value" id="strong-gainers-value" style="color: #38ef7d;">-</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Strong Losers</div>
+                        <div class="insight-value" id="strong-losers-value" style="color: #eb3349;">-</div>
+                    </div>
+                    <div class="insight-item">
+                        <div class="insight-label">Total Volume</div>
+                        <div class="insight-value" id="volume-value">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Strategies Section with Tabs -->
+            <div class="section">
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-button active" onclick="switchTab('live')">
+                            📊 Live Market Strategies
+                        </button>
+                        <button class="tab-button" onclick="switchTab('info')">
+                            📚 Strategy Guide
+                        </button>
+                    </div>
+
+                    <!-- Live Strategies Tab -->
+                    <div id="live-tab" class="tab-content active">
+                        <div class="trading-section" id="trading-section">
+                            <div class="trading-header">
+                                <h2 style="margin: 0;">📈 Current Market Strategies</h2>
+                                <div>
+                                    <span class="phase-badge" id="market-phase">-</span>
+                                    <span class="risk-indicator" id="risk-level">-</span>
+                                </div>
+                            </div>
+
+                            <div id="warnings-container"></div>
+
+                            <div class="strategies-grid" id="strategies-grid"></div>
+
+                            <div class="recommendations-box">
+                                <h3 style="margin-top: 0; margin-bottom: 15px;">💡 Key Recommendations</h3>
+                                <div id="recommendations-list"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Strategy Information Tab -->
+                    <div id="info-tab" class="tab-content">
+                        <div class="section-title">📚 Trading Strategy Guide</div>
+                        
+                        <div class="strategy-info">
+                            <h4>🎯 How Our Strategy Engine Works</h4>
+                            <p>Our intelligent trading strategy system analyzes real-time market data across multiple dimensions to provide actionable trading recommendations. The system evaluates volatility, market trends, breadth, and power dynamics to suggest optimal strategies.</p>
+                        </div>
+
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <h3>📈 Trend-Based Strategies</h3>
+                                <ul>
+                                    <li><strong>Strong Bullish (>60% breadth):</strong> Momentum trading, buying dips, call options on strong stocks</li>
+                                    <li><strong>Bullish:</strong> Position trading with upside bias, selective buying</li>
+                                    <li><strong>Bearish:</strong> Defensive positioning, reduced exposure</li>
+                                    <li><strong>Strong Bearish (<40% breadth):</strong> Short selling, put options, inverse ETFs</li>
+                                    <li><strong>Neutral:</strong> Wait and watch, sectoral rotation</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-card">
+                                <h3>📊 Volatility-Based Strategies</h3>
+                                <ul>
+                                    <li><strong>High Volatility (>2%):</strong> Straddle/Strangle options, scalping, tight stop losses</li>
+                                    <li><strong>Moderate Volatility (1-2%):</strong> Swing trading, normal position sizing</li>
+                                    <li><strong>Low Volatility (<1%):</strong> Range trading, iron condor, theta decay strategies, premium selling</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-card">
+                                <h3>🎭 Market Breadth Indicators</h3>
+                                <ul>
+                                    <li><strong>>65% Advancers:</strong> Overbought conditions, watch for profit booking</li>
+                                    <li><strong>55-65% Advancers:</strong> Healthy bullish trend</li>
+                                    <li><strong>45-55% Advancers:</strong> Neutral/Consolidation phase</li>
+                                    <li><strong>35-45% Advancers:</strong> Bearish trend developing</li>
+                                    <li><strong><35% Advancers:</strong> Oversold, potential bounce</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-card">
+                                <h3>⚡ Bull/Bear Power Analysis</h3>
+                                <ul>
+                                    <li><strong>Net Power >20:</strong> Strong institutional buying, follow the leaders</li>
+                                    <li><strong>Net Power -10 to +10:</strong> Balanced market, stock-specific action</li>
+                                    <li><strong>Net Power <-20:</strong> Distribution phase, defensive positioning</li>
+                                    <li><strong>Extreme Power (>30):</strong> Watch for exhaustion and reversal</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-card">
+                                <h3>⏱️ Timeframes</h3>
+                                <ul>
+                                    <li><strong>Scalping:</strong> Minutes to hours, quick profits</li>
+                                    <li><strong>Intraday:</strong> Same day entry/exit</li>
+                                    <li><strong>Short-term:</strong> 1-5 days holding period</li>
+                                    <li><strong>Medium-term:</strong> 1-4 weeks</li>
+                                    <li><strong>Long-term:</strong> Months to years</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-card">
+                                <h3>⚠️ Risk Management</h3>
+                                <ul>
+                                    <li><strong>Position Sizing:</strong> Reduce size in high volatility</li>
+                                    <li><strong>Stop Losses:</strong> Always use, tighten in volatile markets</li>
+                                    <li><strong>Diversification:</strong> Don't put all capital in one trade</li>
+                                    <li><strong>Risk/Reward:</strong> Aim for minimum 1:2 ratio</li>
+                                    <li><strong>Max Risk:</strong> Never risk >2% of capital per trade</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="strategy-info" style="margin-top: 20px;">
+                            <h4>🎓 Strategy Definitions</h4>
+                            <div style="margin-top: 15px;">
+                                <p><strong>Momentum Trading:</strong> Buying stocks showing strong upward price movement with high volume.</p>
+                                <p><strong>Range Trading:</strong> Buying at support and selling at resistance in sideways markets.</p>
+                                <p><strong>Options Strategies:</strong> Using calls, puts, spreads, and combinations for directional or neutral plays.</p>
+                                <p><strong>Scalping:</strong> Very short-term trades capturing small price movements.</p>
+                                <p><strong>Iron Condor:</strong> Selling out-of-money put and call spreads in low volatility.</p>
+                                <p><strong>Straddle/Strangle:</strong> Buying both call and put options to profit from large moves in either direction.</p>
+                            </div>
+                        </div>
+
+                        <div class="warnings-box" style="margin-top: 20px;">
+                            <strong style="font-size: 1.1em;">⚠️ Important Disclaimer:</strong>
+                            <div class="warning-item">These are educational suggestions based on technical analysis. Always do your own research.</div>
+                            <div class="warning-item">Past performance does not guarantee future results.</div>
+                            <div class="warning-item">Consider your risk tolerance and investment goals before trading.</div>
+                            <div class="warning-item">Consult with a qualified financial advisor for personalized advice.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Stocks Sortable Table -->
+            <div class="section">
+                <div class="section-title">All Nifty 50 Stocks - Sortable Table</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sortable-header" onclick="sortTable('symbol')">Symbol</th>
+                            <th class="sortable-header text-right" onclick="sortTable('lastPrice')">Price (₹)</th>
+                            <th class="sortable-header text-right" onclick="sortTable('change')">Change (₹)</th>
+                            <th class="sortable-header text-right" onclick="sortTable('pChange')">Change %</th>
+                            <th class="sortable-header text-right" onclick="sortTable('weight')">Weight %</th>
+                            <th class="sortable-header text-right" onclick="sortTable('impact')">Impact</th>
+                            <th class="sortable-header text-right" onclick="sortTable('totalTradedVolume')">Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-stocks-table"></tbody>
+                </table>
+            </div>
+
+            <!-- Major Market Movers -->
+            <div class="section">
+                <div class="section-title">Major Market Movers</div>
+                <div class="movers-grid" id="movers-list"></div>
+            </div>
+
+            <!-- Top Gainers and Losers -->
+            <div class="section">
+                <div class="gainers-losers">
+                    <div>
+                        <div class="section-title" style="color: #38ef7d;">Top 5 Gainers</div>
+                        <div class="list-section" id="gainers-list"></div>
+                    </div>
+                    <div>
+                        <div class="section-title" style="color: #eb3349;">Top 5 Losers</div>
+                        <div class="list-section" id="losers-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let autoRefreshEnabled = true;
+        let allStocksData = [];
+        let currentSortColumn = 'weight';
+        let currentSortDirection = 'desc';
+
+        function switchTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Add active class to selected tab
+            if (tabName === 'live') {
+                document.querySelector('.tab-button:first-child').classList.add('active');
+                document.getElementById('live-tab').classList.add('active');
+            } else if (tabName === 'info') {
+                document.querySelector('.tab-button:last-child').classList.add('active');
+                document.getElementById('info-tab').classList.add('active');
+            }
+        }
+
+        function toggleAutoRefresh() {
+            const toggle = document.getElementById('auto-refresh-toggle');
+            autoRefreshEnabled = !autoRefreshEnabled;
+            
+            if (autoRefreshEnabled) {
+                toggle.classList.add('active');
+                startAutoRefresh();
+            } else {
+                toggle.classList.remove('active');
+                stopAutoRefresh();
+            }
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            autoRefreshInterval = setInterval(loadData, 60000); // 60 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        async function loadData() {
+            const loading = document.getElementById('loading');
+            const content = document.getElementById('content');
+            const refreshBtn = document.querySelector('.refresh-btn');
+
+            loading.style.display = 'block';
+            content.style.display = 'none';
+            refreshBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/analyze');
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                renderData(data);
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            } catch (error) {
+                alert('Failed to load data: ' + error.message);
+            } finally {
+                refreshBtn.disabled = false;
+            }
+        }
+
+        function renderData(data) {
+            // Timestamp
+            document.getElementById('timestamp').textContent = 
+                `Last Updated: ${data.timestamp}`;
+
+            // Trend Card
+            document.getElementById('trend-value').textContent = data.trend.trend;
+            document.getElementById('trend-subtitle').textContent = 
+                `Avg Change: ${data.trend.avg_change}%`;
+
+            // Bull Power Card
+            document.getElementById('bull-value').textContent = data.power.bull_power;
+            document.getElementById('bull-subtitle').textContent = 
+                `Advancers: ${data.trend.advancers}`;
+
+            // Bear Power Card
+            document.getElementById('bear-value').textContent = data.power.bear_power;
+            document.getElementById('bear-subtitle').textContent = 
+                `Decliners: ${data.trend.decliners}`;
+
+            // Market Insights
+            document.getElementById('sentiment-value').textContent = data.insights.market_sentiment;
+            document.getElementById('breadth-value').textContent = `${data.insights.breadth_ratio}%`;
+            document.getElementById('volatility-value').textContent = `${data.insights.avg_volatility}%`;
+            document.getElementById('strong-gainers-value').textContent = data.insights.strong_gainers;
+            document.getElementById('strong-losers-value').textContent = data.insights.strong_losers;
+            
+            // Format volume in millions
+            const volumeInMillions = (data.insights.total_volume / 1000000).toFixed(1);
+            document.getElementById('volume-value').textContent = `${volumeInMillions}M`;
+
+            // Store all stocks data for sorting
+            allStocksData = data.top_stocks;
+
+            // Render trading strategies
+            renderTradingStrategies(data.trading_suggestions);
+
+            // Render all stocks table
+            renderAllStocksTable();
+
+            // Major Movers
+            const moversList = document.getElementById('movers-list');
+            moversList.innerHTML = data.major_movers.length > 0 
+                ? data.major_movers.map(stock => `
+                    <div class="mover-item">
+                        <div class="mover-symbol">${stock.symbol}</div>
+                        <div class="mover-weight">Weight: ${stock.weight.toFixed(2)}%</div>
+                        <div class="mover-change ${stock.pChange >= 0 ? 'positive' : 'negative'}">
+                            ${stock.pChange >= 0 ? '+' : ''}${stock.pChange.toFixed(2)}%
+                        </div>
+                        <div class="mover-direction">
+                            ${stock.pChange > 0 ? '🚀 Pulling Up' : '⚓ Dragging Down'}
+                        </div>
+                    </div>
+                `).join('')
+                : '<p style="text-align: center; color: #666; padding: 20px;">No significant movers detected</p>';
+
+            // Gainers
+            const gainersList = document.getElementById('gainers-list');
+            gainersList.innerHTML = data.gainers.length > 0
+                ? data.gainers.map(stock => `
+                    <div class="list-item">
+                        <span class="symbol">${stock.symbol}</span>
+                        <span class="positive">+${stock.pChange.toFixed(2)}%</span>
+                    </div>
+                `).join('')
+                : '<p style="text-align: center; color: #666; padding: 20px;">No gainers today</p>';
+
+            // Losers
+            const losersList = document.getElementById('losers-list');
+            losersList.innerHTML = data.losers.length > 0
+                ? data.losers.map(stock => `
+                    <div class="list-item">
+                        <span class="symbol">${stock.symbol}</span>
+                        <span class="negative">${stock.pChange.toFixed(2)}%</span>
+                    </div>
+                `).join('')
+                : '<p style="text-align: center; color: #666; padding: 20px;">No losers today</p>';
+        }
+
+        function renderTradingStrategies(suggestions) {
+            // Market phase and risk level
+            document.getElementById('market-phase').textContent = suggestions.market_phase;
+            
+            const riskLevel = document.getElementById('risk-level');
+            riskLevel.textContent = `Risk: ${suggestions.risk_level}`;
+            riskLevel.className = 'risk-indicator';
+            
+            if (suggestions.risk_level.includes('High')) {
+                riskLevel.classList.add('risk-high');
+            } else if (suggestions.risk_level.includes('Medium')) {
+                riskLevel.classList.add('risk-medium');
+            } else {
+                riskLevel.classList.add('risk-low');
+            }
+
+            // Warnings
+            const warningsContainer = document.getElementById('warnings-container');
+            if (suggestions.warnings && suggestions.warnings.length > 0) {
+                warningsContainer.innerHTML = `
+                    <div class="warnings-box">
+                        <strong style="font-size: 1.1em;">⚠️ Important Warnings:</strong>
+                        ${suggestions.warnings.map(warning => `
+                            <div class="warning-item">${warning}</div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                warningsContainer.innerHTML = '';
+            }
+
+            // Strategies
+            const strategiesGrid = document.getElementById('strategies-grid');
+            strategiesGrid.innerHTML = suggestions.strategies.map(strategy => `
+                <div class="strategy-card">
+                    <div class="strategy-title">${strategy.method}</div>
+                    <div class="strategy-description">${strategy.description}</div>
+                    <div class="strategy-detail">
+                        <strong>Focus:</strong> ${strategy.stocks}
+                    </div>
+                    <div class="strategy-detail">
+                        <strong>Risk:</strong> ${strategy.risk} | <strong>Timeframe:</strong> ${strategy.timeframe}
+                    </div>
+                </div>
+            `).join('');
+
+            // Recommendations
+            const recommendationsList = document.getElementById('recommendations-list');
+            if (suggestions.recommendations && suggestions.recommendations.length > 0) {
+                recommendationsList.innerHTML = suggestions.recommendations.map(rec => `
+                    <div class="recommendation-item">${rec}</div>
+                `).join('');
+            } else {
+                recommendationsList.innerHTML = '<div class="recommendation-item">Follow standard risk management practices</div>';
+            }
+        }
+
+        function sortTable(column) {
+            // Toggle sort direction if clicking the same column
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                currentSortDirection = 'desc';
+            }
+
+            // Sort the data
+            allStocksData.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+
+                // Handle string comparison for symbol
+                if (column === 'symbol') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                    return currentSortDirection === 'asc' 
+                        ? aVal.localeCompare(bVal)
+                        : bVal.localeCompare(aVal);
+                }
+
+                // Numeric comparison
+                if (currentSortDirection === 'asc') {
+                    return aVal - bVal;
+                } else {
+                    return bVal - aVal;
+                }
+            });
+
+            renderAllStocksTable();
+            updateSortIndicators();
+        }
+
+        function updateSortIndicators() {
+            // Remove all sort classes
+            document.querySelectorAll('.sortable-header').forEach(header => {
+                header.classList.remove('asc', 'desc');
+            });
+
+            // Add current sort class
+            const headers = {
+                'symbol': 0,
+                'lastPrice': 1,
+                'change': 2,
+                'pChange': 3,
+                'weight': 4,
+                'impact': 5,
+                'totalTradedVolume': 6
+            };
+
+            const headerIndex = headers[currentSortColumn];
+            if (headerIndex !== undefined) {
+                const header = document.querySelectorAll('.sortable-header')[headerIndex];
+                header.classList.add(currentSortDirection);
+            }
+        }
+
+        function formatVolume(volume) {
+            if (volume >= 10000000) {
+                return (volume / 10000000).toFixed(2) + ' Cr';
+            } else if (volume >= 100000) {
+                return (volume / 100000).toFixed(2) + ' L';
+            } else {
+                return volume.toLocaleString();
+            }
+        }
+
+        function renderAllStocksTable() {
+            const allStocksTable = document.getElementById('all-stocks-table');
+            allStocksTable.innerHTML = allStocksData.map(stock => `
+                <tr>
+                    <td><strong>${stock.symbol}</strong></td>
+                    <td class="text-right">₹${stock.lastPrice.toFixed(2)}</td>
+                    <td class="text-right ${stock.change >= 0 ? 'positive' : 'negative'}">
+                        ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}
+                    </td>
+                    <td class="text-right ${stock.pChange >= 0 ? 'positive' : 'negative'}">
+                        ${stock.pChange >= 0 ? '+' : ''}${stock.pChange.toFixed(2)}%
+                    </td>
+                    <td class="text-right">${stock.weight.toFixed(2)}%</td>
+                    <td class="text-right ${stock.impact >= 0 ? 'positive' : 'negative'}">
+                        ${stock.impact.toFixed(3)}
+                    </td>
+                    <td class="text-right">${formatVolume(stock.totalTradedVolume || 0)}</td>
+                </tr>
+            `).join('');
+
+            updateSortIndicators();
+        }
+
+        // Load data on page load and start auto-refresh
+        window.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            startAutoRefresh();
+        });
+    </script>
+</body>
+</html>

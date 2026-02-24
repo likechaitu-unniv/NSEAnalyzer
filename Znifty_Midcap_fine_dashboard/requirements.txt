@@ -1,0 +1,26 @@
+# Nifty Dashboard - Python Requirements
+# Run: pip install -r requirements.txt
+
+# Core Dependencies
+Flask==2.3.3
+Flask-SocketIO==5.3.4
+
+# HTTP Requests & API Communication
+requests==2.31.0
+
+# Data Processing & Analysis
+pandas==2.0.3
+numpy==1.24.3
+scipy==1.11.2
+
+# Optional: For production deployment
+# Uncomment if deploying to production:
+# gunicorn==21.2.0
+# gevent==23.9.1
+# gevent-websocket==0.10.1
+
+# Optional: Development & Testing
+# Uncomment if developing or testing:
+# pytest==7.4.0
+# black==23.9.1
+# flake8==6.0.0

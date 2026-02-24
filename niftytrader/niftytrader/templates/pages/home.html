@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Home - NiftyTrader{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Welcome to NiftyTrader</h1>
+            <p class="hero-subtitle">Advanced Market Analysis Dashboard for Nifty 50</p>
+            <div class="hero-buttons">
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-lg">View Dashboard</a>
+                <a href="{{ url_for('trends.index') }}" class="btn btn-secondary btn-lg">Analyze Trends</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <h2>Key Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>📊 Real-time Dashboard</h3>
+                <p>Monitor all Nifty 50 stocks with live price updates and market sentiment analysis.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📈 Trend Analysis</h3>
+                <p>Analyze market trends using advanced technical indicators and option chain data.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔥 Major Movers</h3>
+                <p>Identify stocks with highest impact on Nifty index movements in real-time.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📚 Learning Resources</h3>
+                <p>Comprehensive guides, glossary, and FAQ to help you understand market analysis.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="quick-stats">
+        <h2>Market Overview</h2>
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <p class="stat-label">Market Status</p>
+                <p class="stat-value" id="marketStatus">Loading...</p>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Total Stocks</p>
+                <p class="stat-value" id="totalStocks">50</p>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Average Change</p>
+                <p class="stat-value" id="avgChange">--</p>
+            </div>
+            <div class="stat-card">
+                <p class="stat-label">Market Trend</p>
+                <p class="stat-value" id="marketTrend">--</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <h2>Ready to Start?</h2>
+        <p>Explore real-time market data and make informed trading decisions</p>
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-lg">Go to Dashboard</a>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/home.js') }}"></script>
+{% endblock %}

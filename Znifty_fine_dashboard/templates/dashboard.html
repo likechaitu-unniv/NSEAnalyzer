@@ -1,0 +1,3206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nifty Dashboard - Professional Analytics</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --dark-bg: #1a1f3a;
+            --card-bg: #252d4a;
+            --accent: #00bfff;
+            --success: #4CAF50;
+            --warning: #FFA500;
+            --danger: #FF6B6B;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8d4;
+            --border: #3a4563;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 12px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 1.4em;
+            margin: 0;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-controls button,
+        .header-controls input {
+            padding: 6px 12px;
+            background: var(--dark-bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .header-controls button:hover {
+            background: var(--accent);
+            color: var(--dark-bg);
+            border-color: var(--accent);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-button:hover {
+            color: var(--accent);
+        }
+
+        .tab-button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            height: auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .card-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .card-change {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            width: fit-content;
+            margin-top: 6px;
+        }
+
+        .card-change.positive {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+
+        .card-change.negative {
+            background: rgba(255, 107, 107, 0.2);
+            color: #FF6B6B;
+        }
+
+        .card-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .metric-item {
+            font-size: 12px;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .metric-value {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .pcr-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .pcr-bar-track {
+            flex: 1;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            overflow: hidden;
+        }
+
+        .pcr-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #FFA500 50%, #FF6B6B 100%);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pcr-bar-marker {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .pcr-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .pcr-bar-label-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .advancers-decliners-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .advancers-decliners-bar-track {
+            flex: 1;
+            height: 32px;
+            display: flex;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .advancers-portion {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s ease;
+            position: relative;
+            min-width: 40px;
+        }
+
+        .decliners-portion {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s ease;
+            position: relative;
+            min-width: 40px;
+        }
+
+        .portion-label {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .advancers-decliners-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .bar-label-item {
+            flex: 1;
+        }
+
+        .call-put-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .call-put-bar-track {
+            flex: 1;
+            height: 32px;
+            display: flex;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .call-portion {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s ease;
+            position: relative;
+            min-width: 40px;
+        }
+
+        .put-portion {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s ease;
+            position: relative;
+            min-width: 40px;
+        }
+
+        .call-put-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 12px;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-label {
+            color: var(--text-secondary);
+        }
+
+        .list-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 6px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #00ff88);
+            border-radius: 2px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 150px;
+            margin-top: 8px;
+        }
+
+        .signal-badge {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .signal-bullish {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+
+        .signal-bearish {
+            background: rgba(255, 107, 107, 0.2);
+            color: #FF6B6B;
+            border: 1px solid #FF6B6B;
+        }
+
+        .signal-neutral {
+            background: rgba(255, 165, 0, 0.2);
+            color: #FFA500;
+            border: 1px solid #FFA500;
+        }
+
+        .gauge {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(#FF6B6B 0deg 180deg, #4CAF50 180deg 360deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .gauge-inner {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .gauge-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .gauge-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .table-compact {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .table-compact th {
+            background: rgba(0, 191, 255, 0.1);
+            padding: 6px;
+            text-align: left;
+            color: var(--accent);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table-compact td {
+            padding: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+        }
+
+        .table-compact tr:hover td {
+            background: rgba(0, 191, 255, 0.05);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Markdown Guide Styles */
+        #guide-markdown {
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+            display: block !important;
+            width: 100%;
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #guide-markdown h1 {
+            font-size: 2.2em;
+            margin: 24px 0 16px 0;
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 12px;
+        }
+
+        #guide-markdown h2 {
+            font-size: 1.8em;
+            margin: 20px 0 12px 0;
+            color: var(--accent);
+            border-left: 4px solid var(--accent);
+            padding-left: 12px;
+        }
+
+        #guide-markdown h3 {
+            font-size: 1.4em;
+            margin: 16px 0 10px 0;
+            color: #4CAF50;
+        }
+
+        #guide-markdown h4 {
+            font-size: 1.2em;
+            margin: 12px 0 8px 0;
+            color: #FFC107;
+        }
+
+        #guide-markdown p {
+            margin: 12px 0;
+            color: var(--text-secondary);
+        }
+
+        #guide-markdown ul, #guide-markdown ol {
+            margin: 12px 0;
+            padding-left: 30px;
+        }
+
+        #guide-markdown li {
+            margin: 6px 0;
+            color: var(--text-secondary);
+        }
+
+        #guide-markdown code {
+            background: rgba(0, 191, 255, 0.15);
+            color: #00bfff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        #guide-markdown pre {
+            background: rgba(0, 0, 0, 0.3);
+            color: #4CAF50;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 12px 0;
+            border-left: 4px solid #4CAF50;
+            font-family: 'Courier New', monospace;
+        }
+
+        #guide-markdown pre code {
+            background: none;
+            color: #4CAF50;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        #guide-markdown table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+
+        #guide-markdown table th {
+            background: rgba(0, 191, 255, 0.2);
+            color: var(--accent);
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid var(--accent);
+            font-weight: 600;
+        }
+
+        #guide-markdown table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        #guide-markdown table tr:hover td {
+            background: rgba(0, 191, 255, 0.08);
+        }
+
+        #guide-markdown blockquote {
+            border-left: 4px solid var(--accent);
+            padding-left: 16px;
+            margin: 16px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        #guide-markdown a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--accent);
+        }
+
+        #guide-markdown a:hover {
+            text-decoration: underline;
+        }
+
+        #guide-markdown strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        #guide-markdown em {
+            color: #FFC107;
+            font-style: italic;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+            }
+        }
+    </style>
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>📊 Nifty Dashboard</h1>
+        </div>
+        <div class="header-controls">
+            <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark</button>
+            <input type="date" id="expiryInput" title="Select expiry date">
+            <button onclick="changeExpiry()">Change Expiry</button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-button active" onclick="switchTab('stocks')">📈 Stocks</button>
+        <button class="tab-button" onclick="switchTab('options')">📊 Analysis</button>
+        <button class="tab-button" onclick="switchTab('greeks')">ξ Greeks</button>
+        <button class="tab-button" onclick="switchTab('trends')">📉 Trends</button>
+        <button class="tab-button" onclick="switchTab('guide')">📖 Guide</button>
+    </div>
+
+    <!-- STOCKS TAB -->
+    <div id="stocks" class="tab-content active">
+        <div id="stocks-loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading stock data...</p>
+        </div>
+        <div id="stocks-content" class="hidden">
+            <div class="dashboard-grid">
+                <!-- Market Trend Card -->
+                <div class="card">
+                    <div class="card-header">📈 Market Trend</div>
+                    <div class="card-value" id="stocks-trend">-</div>
+                    <div class="card-subtitle" id="stocks-trend-detail">-</div>
+                    <div class="card-row">
+                        <div class="metric-item">
+                            <div class="metric-label">Advancers</div>
+                            <div class="metric-value" id="stocks-advancers">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Decliners</div>
+                            <div class="metric-value" id="stocks-decliners">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bull Power Card -->
+                <div class="card">
+                    <div class="card-header">🐂 Bull Power</div>
+                    <div class="card-value" id="stocks-bull">-</div>
+                    <div class="card-subtitle">Weighted Power</div>
+                    <div class="card-row">
+                        <div class="metric-item">
+                            <div class="metric-label">Bear Power</div>
+                            <div class="metric-value" id="stocks-bear">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Net Power</div>
+                            <div class="metric-value" id="stocks-net">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Sentiment Card -->
+                <div class="card">
+                    <div class="card-header">💡 Market Insights</div>
+                    <div class="metric-item">
+                        <div class="metric-label">Sentiment</div>
+                        <div class="metric-value" id="stocks-sentiment">-</div>
+                    </div>
+                    <div class="metric-item" style="margin-top: 6px;">
+                        <div class="metric-label">Breadth Ratio</div>
+                        <div class="metric-value" id="stocks-breadth">-</div>
+                    </div>
+                    <div class="progress-bar" style="margin-top: 8px;">
+                        <div class="progress-fill" id="stocks-breadth-bar" style="width: 50%;"></div>
+                    </div>
+                </div>
+
+                <!-- Volatility & Volume Card -->
+                <div class="card">
+                    <div class="card-header">📊 Volatility & Volume</div>
+                    <div class="card-row">
+                        <div class="metric-item">
+                            <div class="metric-label">Volatility</div>
+                            <div class="metric-value" id="stocks-volatility">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Gainers</div>
+                            <div class="metric-value" id="stocks-gainers">-</div>
+                        </div>
+                    </div>
+                    <div class="card-row" style="margin-top: 8px;">
+                        <div class="metric-item">
+                            <div class="metric-label">Losers</div>
+                            <div class="metric-value" id="stocks-losers">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Total Vol</div>
+                            <div class="metric-value" id="stocks-total-vol" style="font-size: 1.1em;">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-Column Table Layout -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+                <!-- Gaining Stocks Table -->
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, rgba(76, 175, 80, 0.3) 0%, rgba(76, 175, 80, 0.1) 100%); border-left: 4px solid #4CAF50;">📈 Gaining Stocks</div>
+                    <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                        <table class="table-compact">
+                            <thead style="position: sticky; top: 0;">
+                                <tr style="background: rgba(76, 175, 80, 0.2);">
+                                    <th onclick="sortStocksGainersTable('symbol')" style="cursor: pointer; color: #4CAF50;">Symbol ↕</th>
+                                    <th class="text-right" onclick="sortStocksGainersTable('lastPrice')" style="cursor: pointer; color: #4CAF50;">Rate ↕</th>
+                                    <th class="text-right" onclick="sortStocksGainersTable('change')" style="cursor: pointer; color: #4CAF50;">Change ↕</th>
+                                    <th class="text-right" onclick="sortStocksGainersTable('weight')" style="cursor: pointer; color: #4CAF50;">W Point O ↕</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stocks-gainers-table">
+                                <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Losing Stocks Table -->
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, rgba(255, 107, 107, 0.3) 0%, rgba(255, 107, 107, 0.1) 100%); border-left: 4px solid #FF6B6B;">📉 Losing Stocks</div>
+                    <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                        <table class="table-compact">
+                            <thead style="position: sticky; top: 0;">
+                                <tr style="background: rgba(255, 107, 107, 0.2);">
+                                    <th onclick="sortStocksLosersTable('symbol')" style="cursor: pointer; color: #FF6B6B;">Symbol ↕</th>
+                                    <th class="text-right" onclick="sortStocksLosersTable('lastPrice')" style="cursor: pointer; color: #FF6B6B;">Rate ↕</th>
+                                    <th class="text-right" onclick="sortStocksLosersTable('change')" style="cursor: pointer; color: #FF6B6B;">Change ↕</th>
+                                    <th class="text-right" onclick="sortStocksLosersTable('weight')" style="cursor: pointer; color: #FF6B6B;">W Point O ↕</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stocks-losers-table">
+                                <tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OPTIONS + TREND ANALYSIS TAB -->
+    <div id="options" class="tab-content">
+        <div id="options-loading" class="loading">
+            <div class="spinner"></div>
+            <p>Connecting to market data...</p>
+        </div>
+        <div id="options-content" class="hidden">
+            <!-- OPTIONS ANALYSIS SECTION -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; padding: 12px 16px; background: rgba(0, 191, 255, 0.15); border-left: 4px solid var(--accent); border-radius: 4px; font-size: 1.2em;">📊 Options Analysis</h3>
+                <div class="dashboard-grid">
+                    <!-- Signal Card -->
+                    <div class="card" style="grid-column: 1 / 2;">
+                        <div class="card-header">🎯 Primary Signal</div>
+                        <div class="card-value" id="options-signal" style="color: var(--accent);">-</div>
+                        <div class="card-subtitle" id="options-action">-</div>
+                        <div class="signal-badge signal-neutral" id="options-signal-badge">SIGNAL</div>
+                        <div class="metric-item" style="margin-top: 12px;">
+                            <div class="metric-label">Confidence</div>
+                            <div class="metric-value" id="options-confidence">-</div>
+                        </div>
+                    </div>
+
+                    <!-- PCR Analysis -->
+                    <div class="card">
+                        <div class="card-header">📊 PCR Analysis</div>
+                        <div class="card-value" id="options-pcr">-</div>
+                        <div class="card-subtitle">Put-Call Ratio</div>
+                        <div class="signal-badge signal-neutral" id="options-pcr-signal">-</div>
+                    </div>
+
+                    <!-- Max Pain -->
+                    <div class="card">
+                        <div class="card-header">💰 Max Pain</div>
+                        <div class="card-value" id="options-max-pain">-</div>
+                        <div class="card-subtitle">Strike Level</div>
+                        <div class="metric-item" style="margin-top: 8px;">
+                            <div class="metric-label">Current Price</div>
+                            <div class="metric-value" id="options-spot" style="font-size: 1.3em;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- OI Analysis -->
+                    <div class="card">
+                        <div class="card-header">📈 OI Buildup</div>
+                        <div id="options-oi-pattern" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                        <div class="signal-badge signal-neutral" id="options-oi-signal">-</div>
+                        <div class="card-row" style="margin-top: 12px;">
+                            <div class="metric-item">
+                                <div class="metric-label">Call OI</div>
+                                <div class="metric-value" id="options-call-oi" style="font-size: 1.1em;">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Put OI</div>
+                                <div class="metric-value" id="options-put-oi" style="font-size: 1.1em;">-</div>
+                            </div>
+                        </div>
+                        <div class="card-row" style="margin-top: 12px;">
+                            <div class="metric-item">
+                                <div class="metric-label">CE Buildup</div>
+                                <div class="metric-value" id="options-ce-buildup" style="font-size: 0.95em;">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">PE Buildup</div>
+                                <div class="metric-value" id="options-pe-buildup" style="font-size: 0.95em;">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buy/Sell Pressure -->
+                    <div class="card">
+                        <div class="card-header">⚖️ Market Pressure</div>
+                        <div id="options-pressure" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                        <div class="signal-badge signal-neutral" id="options-pressure-signal">-</div>
+                        <div class="metric-item" style="margin-top: 12px;">
+                            <div class="metric-label">Net Pressure</div>
+                            <div class="metric-value" id="options-net-pressure" style="font-size: 1.2em;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- IV Analysis -->
+                    <div class="card">
+                        <div class="card-header">📊 Volatility</div>
+                        <div class="card-row">
+                            <div class="metric-item">
+                                <div class="metric-label">ATM IV</div>
+                                <div class="metric-value" id="options-atm-iv">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Skew</div>
+                                <div class="metric-value" id="options-skew">-</div>
+                            </div>
+                        </div>
+                        <div class="card-row" style="margin-top: 8px;">
+                            <div class="metric-item">
+                                <div class="metric-label">CE IV</div>
+                                <div class="metric-value" id="options-ce-iv" style="font-size: 1em;">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">PE IV</div>
+                                <div class="metric-value" id="options-pe-iv" style="font-size: 1em;">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Support & Resistance -->
+                    <div class="card">
+                        <div class="card-header">🎯 Key Levels</div>
+                        <div class="metric-item" style="margin-bottom: 8px;">
+                            <div class="metric-label">Resistance</div>
+                            <div class="metric-value" id="options-resistance" style="font-size: 1.3em;">-</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Support</div>
+                            <div class="metric-value" id="options-support" style="font-size: 1.3em;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div class="card">
+                        <div class="card-header">📋 Summary</div>
+                        <div class="list-item">
+                            <span class="list-label">Overall PCR</span>
+                            <span class="list-value" id="options-overall-pcr">-</span>
+                        </div>
+                        <div class="list-item">
+                            <span class="list-label">PCR Volume</span>
+                            <span class="list-value" id="options-pcr-volume">-</span>
+                        </div>
+                        <div class="list-item">
+                            <span class="list-label">Updated</span>
+                            <span class="list-value" id="options-timestamp" style="font-size: 11px;">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Options Chain Table -->
+                <div class="card" style="grid-column: 1 / -1; margin-top: 12px;">
+                    <div class="card-header">📊 Options Chain Details</div>
+                    <div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto;" id="options-column-toggles"></div>
+                    <div style="overflow-x: auto;">
+                        <table class="table-compact">
+                            <thead id="options-table-head">
+                                <tr></tr>
+                            </thead>
+                            <tbody id="options-table-body">
+                                <tr><td colspan="11" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TREND ANALYSIS SECTION -->
+            <div>
+                <h3 style="margin: 0 0 12px 0; padding: 12px 16px; background: rgba(76, 175, 80, 0.15); border-left: 4px solid #4CAF50; border-radius: 4px; font-size: 1.2em;">🔄 Trend Analysis</h3>
+                <div class="dashboard-grid">
+                    <!-- Main Signal -->
+                    <div class="card" style="grid-column: 1 / 2;">
+                        <div class="card-header">🎯 Trend Signal</div>
+                        <div class="card-value" id="trend-signal" style="color: var(--accent);">-</div>
+                        <div class="card-subtitle" id="trend-action">-</div>
+                        <div class="signal-badge signal-neutral" id="trend-badge">SIGNAL</div>
+                        <div class="metric-item" style="margin-top: 12px;">
+                            <div class="metric-label">Confidence</div>
+                            <div class="metric-value" id="trend-confidence">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Max Pain -->
+                    <div class="card">
+                        <div class="card-header">💰 Max Pain</div>
+                        <div class="card-value" id="trend-max-pain">-</div>
+                        <div class="signal-badge signal-neutral" id="trend-max-pain-signal">-</div>
+                        <div class="metric-item" style="margin-top: 12px;">
+                            <div class="metric-label">Distance</div>
+                            <div class="metric-value" id="trend-max-pain-dist" style="font-size: 1.1em;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- OI Buildup -->
+                    <div class="card">
+                        <div class="card-header">📈 OI Buildup</div>
+                        <div id="trend-oi" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                        <div class="signal-badge signal-neutral" id="trend-oi-signal">-</div>
+                    </div>
+
+                    <!-- Pressure -->
+                    <div class="card">
+                        <div class="card-header">⚖️ Pressure</div>
+                        <div id="trend-pressure" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                        <div class="signal-badge signal-neutral" id="trend-pressure-signal">-</div>
+                    </div>
+
+                    <!-- IV Analysis -->
+                    <div class="card">
+                        <div class="card-header">📊 Volatility</div>
+                        <div class="metric-item">
+                            <div class="metric-label">ATM IV</div>
+                            <div class="metric-value" id="trend-iv">-</div>
+                        </div>
+                        <div class="metric-item" style="margin-top: 8px;">
+                            <div class="metric-label">Signal</div>
+                            <div class="metric-value" id="trend-iv-signal" style="font-size: 1em;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Resistance -->
+                    <div class="card">
+                        <div class="card-header">📈 Resistance Levels</div>
+                        <div id="trend-resistances" style="font-size: 11px;">
+                            <div class="list-item" style="padding: 3px 0;">
+                                <span class="list-label">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Support -->
+                    <div class="card">
+                        <div class="card-header">📉 Support Levels</div>
+                        <div id="trend-supports" style="font-size: 11px;">
+                            <div class="list-item" style="padding: 3px 0;">
+                                <span class="list-label">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GREEKS TAB -->
+    <div id="greeks" class="tab-content">
+        <div id="greeks-loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading Greeks data...</p>
+        </div>
+        <div id="greeks-content" class="hidden">
+            <div class="dashboard-grid">
+                <!-- Greeks Info Card -->
+                <div class="card">
+                    <div class="card-header">ξ Greeks Overview</div>
+                    <div class="metric-item">
+                        <div class="metric-label">Expiry</div>
+                        <div class="metric-value" id="greeks-expiry" style="font-size: 1.2em;">-</div>
+                    </div>
+                    <div class="metric-item" style="margin-top: 8px;">
+                        <div class="metric-label">Days to Expiry</div>
+                        <div class="metric-value" id="greeks-days" style="font-size: 1.4em;">-</div>
+                    </div>
+                </div>
+
+                <!-- ATM Greeks -->
+                <div class="card">
+                    <div class="card-header">🎯 ATM Greeks (CE)</div>
+                    <div class="metric-item">
+                        <div class="metric-label">Delta</div>
+                        <div class="metric-value" id="greeks-ce-delta">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Gamma</div>
+                        <div class="metric-value" id="greeks-ce-gamma" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Theta</div>
+                        <div class="metric-value" id="greeks-ce-theta" style="font-size: 1.1em;">-</div>
+                    </div>
+                </div>
+
+                <!-- ATM Put Greeks -->
+                <div class="card">
+                    <div class="card-header">🎯 ATM Greeks (PE)</div>
+                    <div class="metric-item">
+                        <div class="metric-label">Delta</div>
+                        <div class="metric-value" id="greeks-pe-delta">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Gamma</div>
+                        <div class="metric-value" id="greeks-pe-gamma" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Theta</div>
+                        <div class="metric-value" id="greeks-pe-theta" style="font-size: 1.1em;">-</div>
+                    </div>
+                </div>
+
+                <!-- Vega & IV -->
+                <div class="card">
+                    <div class="card-header">📊 Vega & IV</div>
+                    <div class="metric-item">
+                        <div class="metric-label">CE Vega</div>
+                        <div class="metric-value" id="greeks-ce-vega" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">PE Vega</div>
+                        <div class="metric-value" id="greeks-pe-vega" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">CE IV</div>
+                        <div class="metric-value" id="greeks-ce-iv" style="font-size: 1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">PE IV</div>
+                        <div class="metric-value" id="greeks-pe-iv" style="font-size: 1em;">-</div>
+                    </div>
+                </div>
+
+                <!-- OI Comparison -->
+                <div class="card">
+                    <div class="card-header">📊 Open Interest</div>
+                    <div class="metric-item">
+                        <div class="metric-label">CE OI</div>
+                        <div class="metric-value" id="greeks-ce-oi" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">PE OI</div>
+                        <div class="metric-value" id="greeks-pe-oi" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item" style="margin-top: 8px;">
+                        <div class="metric-label">OI Ratio</div>
+                        <div class="metric-value" id="greeks-oi-ratio" style="font-size: 1.2em;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Greeks Chain Table -->
+            <div class="card" style="grid-column: 1 / -1; margin-top: 12px;">
+                <div class="card-header">ξ Greeks by Strike Price</div>
+                <div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto;" id="greeks-column-toggles"></div>
+                <div style="overflow-x: auto;">
+                    <table class="table-compact">
+                        <thead id="greeks-table-head">
+                            <tr></tr>
+                        </thead>
+                        <tbody id="greeks-table-body">
+                            <tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRENDS TAB -->
+    <div id="trends" class="tab-content">
+        <div id="trends-loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading trend data...</p>
+        </div>
+        <div id="trends-content" class="hidden">
+            <div class="dashboard-grid">
+                <!-- First Row: Market Analysis and CE vs PE Buildup -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">🎯 Market Analysis (80%)</div>
+                    <div class="card-row" style="gap: 12px; flex-direction: column;">
+                        <div class="metric-item" style="border-right: none; padding-right: 0;">
+                            <div class="metric-label" style="font-size: 11px;">Market Trend</div>
+                            <div class="metric-value" id="trends-market-trend" style="font-size: 1.3em; margin: 4px 0;">-</div>
+                            
+                            <!-- Advancers vs Decliners Bar -->
+                            <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 6px;">
+                                <div class="metric-label" style="font-size: 11px; margin-bottom: 6px;">Gainers / Losers</div>
+                                <div class="advancers-decliners-bar-container">
+                                    <div class="advancers-decliners-bar-track">
+                                        <div class="advancers-portion" id="advancers-portion" style="width: 50%; background-color: #4CAF50;">
+                                            <span class="portion-label" style="color: white; font-weight: 600;" id="advancers-label">-</span>
+                                        </div>
+                                        <div class="decliners-portion" id="decliners-portion" style="width: 50%; background-color: #FF6B6B;">
+                                            <span class="portion-label" style="color: white; font-weight: 600;" id="decliners-label">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="advancers-decliners-labels">
+                                    <div class="bar-label-item" style="text-align: left;">Gainers: <span id="trends-advancers-count" style="color: #4CAF50;">-</span></div>
+                                    <div class="bar-label-item" style="text-align: right;">Losers: <span id="trends-decliners-count" style="color: #FF6B6B;">-</span></div>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-label" style="font-size: 11px; margin-top: 8px;">Avg Change</div>
+                            <div style="font-size: 12px;" id="trends-avg-change">-</div>
+                        </div>
+                        <div class="metric-item" style="flex: 1; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px;">
+                            <div class="metric-label" style="font-size: 11px;">Primary Signal</div>
+                            <div class="metric-value" id="trends-primary-signal" style="font-size: 1.3em; margin: 4px 0;">-</div>
+                            <div class="metric-label" style="font-size: 11px;">Confidence</div>
+                            <div style="font-size: 12px; margin-bottom: 4px;" id="trends-confidence">-</div>
+                            <div class="metric-label" style="font-size: 11px;">Action</div>
+                            <div style="font-size: 12px;" id="trends-action">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CE vs PE Buildup Card with Decision -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">⚡ CE vs PE Buildup (5%)</div>
+                    <div class="card-row" style="gap: 12px; flex-direction: column;">
+                        <div class="metric-item" style="border-right: none; padding-right: 0;">
+                            <div class="metric-label" style="font-size: 11px;">Status</div>
+                            <div class="metric-value" id="trends-oi-buildup-signal" style="font-size: 1.2em; margin: 2px 0;">-</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;" id="trends-buildup-interpretation">-</div>
+                        </div>
+                        
+                        <!-- Call vs Put Visual Bar -->
+                        <div style="border-top: 1px solid var(--border); padding-top: 8px;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 6px;">Call Writing / Put Writing</div>
+                            <div class="call-put-bar-container">
+                                <div class="call-put-bar-track">
+                                    <div class="call-portion" id="call-portion" style="width: 50%; background-color: #FF6B6B;">
+                                        <span class="portion-label" style="color: white; font-weight: 600;" id="call-label">-</span>
+                                    </div>
+                                    <div class="put-portion" id="put-portion" style="width: 50%; background-color: #4CAF50;">
+                                        <span class="portion-label" style="color: white; font-weight: 600;" id="put-label">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="call-put-labels">
+                                <div class="bar-label-item" style="text-align: left;">Call: <span id="trends-call-count" style="color: #FF6B6B;">-</span></div>
+                                <div class="bar-label-item" style="text-align: right;">Put: <span id="trends-put-count" style="color: #4CAF50;">-</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-item" style="border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px;">
+                            <div class="metric-label" style="font-size: 11px;">Decision</div>
+                            <div class="metric-value" id="trends-derived-decision" style="font-size: 1.2em; margin: 2px 0;">-</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;" id="trends-decision-rationale">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PCR (Put-Call Ratio) Card -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">📊 PCR Analysis(0.7>Neutral<1.4)</div>
+                    <div class="card-row" style="gap: 12px; flex-direction: column;">
+                        <div class="metric-item" style="border-right: none; padding-right: 0;">
+                            <div class="metric-label" style="font-size: 11px;">Current</div>
+                            <div class="card-value" id="trend-pcr" style="font-size: 1.6em; margin: 2px 0;">-</div>
+                            <div class="signal-badge signal-neutral" id="trend-pcr-signal" style="font-size: 11px; padding: 4px 8px;">-</div>
+                        </div>
+                        
+                        <!-- PCR Visual Bar -->
+                        <div style="border-top: 1px solid var(--border); padding-top: 8px;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 6px;">High / Current / Low</div>
+                            <div class="pcr-bar-container">
+                                <div class="pcr-bar-track" id="pcr-bar-track">
+                                    <div class="pcr-bar-fill" id="pcr-bar-fill" style="width: 50%;">
+                                        <div class="pcr-bar-marker" id="pcr-bar-marker" style="left: 50%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pcr-bar-labels">
+                                <div class="pcr-bar-label-item" style="text-align: left;">Low: <span id="pcr-bar-low">-</span></div>
+                                <div class="pcr-bar-label-item" style="text-align: center;">Curr: <span id="pcr-bar-current">-</span></div>
+                                <div class="pcr-bar-label-item" style="text-align: right;">High: <span id="pcr-bar-high">-</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-item" style="border-right: none; padding-right: 0; border-top: 1px solid var(--border); padding-top: 8px;">
+                            <div class="metric-label" style="font-size: 11px;">Direction</div>
+                            <div class="metric-value" id="trend-pcr-direction" style="font-size: 1.1em; margin: 2px 0;">-</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" id="trend-pcr-trend">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trend Statistics Card -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">📊 Statistics</div>
+                    <div class="card-row" style="gap: 12px; flex-direction: column;">
+                        <div class="metric-item" style="flex: 1;">
+                            <div class="metric-label" style="font-size: 11px;">Total</div>
+                            <div class="metric-value" id="trends-total" style="font-size: 1.2em;">-</div>
+                        </div>
+                        <div class="metric-item" style="flex: 1;">
+                            <div class="metric-label" style="font-size: 11px; color: #4CAF50;">Bullish</div>
+                            <div class="metric-value" id="trends-bullish" style="font-size: 1.2em; color: #4CAF50;">-</div>
+                        </div>
+                        <div class="metric-item" style="flex: 1;">
+                            <div class="metric-label" style="font-size: 11px; color: #FF6B6B;">Bearish</div>
+                            <div class="metric-value" id="trends-bearish" style="font-size: 1.2em; color: #FF6B6B;">-</div>
+                        </div>
+                        <div class="metric-item" style="flex: 1;">
+                            <div class="metric-label" style="font-size: 11px; color: #FFA500;">Neutral</div>
+                            <div class="metric-value" id="trends-neutral" style="font-size: 1.2em; color: #FFA500;">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PCR Timeframe Analysis Card -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 12px; font-size: 1.1em;">⏱️ PCR TIMEFRAME CHANGES</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                        <!-- 1-Minute PCR Change -->
+                        <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 8px; text-transform: uppercase;">1 Minute</div>
+                            <div style="font-size: 1.4em; font-weight: bold; margin-bottom: 6px;">
+                                <span id="pcr-1min-direction" style="font-size: 1.5em;">-</span><br>
+                                <span id="pcr-1min-value" style="color: var(--text-primary); font-size: 1.2em;">0.0000</span>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
+                                <span id="pcr-1min-percent">0.00%</span>
+                            </div>
+                            <div style="padding: 6px 8px; border-radius: 4px; background: rgba(255, 165, 0, 0.2); border: 1px solid rgba(255, 165, 0, 0.4);">
+                                <div id="pcr-1min-badge" style="font-size: 11px; font-weight: bold; color: #FFA500;">NO CHANGE</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 2-Minute PCR Change -->
+                        <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 8px; text-transform: uppercase;">2 Minutes</div>
+                            <div style="font-size: 1.4em; font-weight: bold; margin-bottom: 6px;">
+                                <span id="pcr-2min-direction" style="font-size: 1.5em;">-</span><br>
+                                <span id="pcr-2min-value" style="color: var(--text-primary); font-size: 1.2em;">0.0000</span>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
+                                <span id="pcr-2min-percent">0.00%</span>
+                            </div>
+                            <div style="padding: 6px 8px; border-radius: 4px; background: rgba(255, 165, 0, 0.2); border: 1px solid rgba(255, 165, 0, 0.4);">
+                                <div id="pcr-2min-badge" style="font-size: 11px; font-weight: bold; color: #FFA500;">NO CHANGE</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 5-Minute PCR Change -->
+                        <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 8px; text-transform: uppercase;">5 Minutes</div>
+                            <div style="font-size: 1.4em; font-weight: bold; margin-bottom: 6px;">
+                                <span id="pcr-5min-direction" style="font-size: 1.5em;">-</span><br>
+                                <span id="pcr-5min-value" style="color: var(--text-primary); font-size: 1.2em;">0.0000</span>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
+                                <span id="pcr-5min-percent">0.00%</span>
+                            </div>
+                            <div style="padding: 6px 8px; border-radius: 4px; background: rgba(255, 165, 0, 0.2); border: 1px solid rgba(255, 165, 0, 0.4);">
+                                <div id="pcr-5min-badge" style="font-size: 11px; font-weight: bold; color: #FFA500;">NO CHANGE</div>
+                            </div>
+                        </div>
+
+                        <!-- 10-Minute PCR Change -->
+                        <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
+                            <div class="metric-label" style="font-size: 11px; margin-bottom: 8px; text-transform: uppercase;">10 Minutes</div>
+                            <div style="font-size: 1.4em; font-weight: bold; margin-bottom: 6px;">
+                                <span id="pcr-10min-direction" style="font-size: 1.5em;">-</span><br>
+                                <span id="pcr-10min-value" style="color: var(--text-primary); font-size: 1.2em;">0.0000</span>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
+                                <span id="pcr-10min-percent">0.00%</span>
+                            </div>
+                            <div style="padding: 6px 8px; border-radius: 4px; background: rgba(255, 165, 0, 0.2); border: 1px solid rgba(255, 165, 0, 0.4);">
+                                <div id="pcr-10min-badge" style="font-size: 11px; font-weight: bold; color: #FFA500;">NO CHANGE</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Container with Scroll -->
+                <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; max-height: 2000px; overflow-y: auto; padding: 4px;">
+
+                    <!-- First Row: PCR Trend and Advancers & Decliners -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- PCR Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">📉 PCR Trend Over Time</div>
+                            <canvas id="trendChart" style="max-height: 300px;"></canvas>
+                        </div>
+
+                        <!-- Advancers & Decliners Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">📊 Advancers & Decliners Trend</div>
+                            <canvas id="advancersDeclinersChart" style="max-height: 300px;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Second Row: Call & Put Writing and Nifty Value -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Call & Put Writing Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">⚡ Call Writing vs Put Writing Trend</div>
+                            <canvas id="callPutWritingChart" style="max-height: 300px;"></canvas>
+                        </div>
+
+                        <!-- Nifty Value Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">💹 Nifty Value Trend</div>
+                            <canvas id="niftyValueChart" style="max-height: 300px;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Third Row: Call OI vs Put OI and Confidence Score -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Call OI vs Put OI Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">📊 Call OI vs Put OI Trend</div>
+                            <canvas id="callPutOIChart" style="max-height: 300px;"></canvas>
+                        </div>
+
+                        <!-- Confidence Score Trend Chart -->
+                        <div class="card">
+                            <div class="card-header">🎯 Signal Confidence Trend</div>
+                            <canvas id="confidenceChart" style="max-height: 300px;"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Recent Trends Table -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div class="card-header">📈 Recent Trend History (Last 50)</div>
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+                        <table class="table-compact" style="width: 100%; font-size: 12px;">
+                            <thead style="position: sticky; top: 0; background: var(--dark-bg);">
+                                <tr>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">Time</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">Nifty Value</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">PCR (OI)</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">PCR (Vol)</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">Sentiment</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">IV Rank</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">Call OI</th>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">Put OI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trends-table-body">
+                                <tr><td colspan="8" style="padding: 20px; text-align: center; color: var(--text-secondary);">No trend data available yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+        </div>
+    </div>
+
+    <!-- GUIDE TAB -->
+    <div id="guide" class="tab-content">
+        <div style="padding: 20px;">
+            <div id="guide-loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading guide...</p>
+            </div>
+            <div id="guide-content" style="display: none;">
+                <div id="guide-markdown" style="padding: 20px; color: var(--text-primary);">
+                    <!-- Markdown content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Verify marked library is loaded
+        console.log('[INIT] marked library check:');
+        console.log('[INIT]   - typeof marked:', typeof marked);
+        console.log('[INIT]   - marked available:', !!window.marked);
+        
+        // Wait a bit for marked to load if needed
+        if (typeof marked === 'undefined') {
+            console.warn('[INIT] WARNING: marked library not immediately available, waiting...');
+            // Give it up to 2 seconds to load
+            const startTime = Date.now();
+            const checkMarked = setInterval(() => {
+                if (typeof marked !== 'undefined') {
+                    console.log('[INIT] ✓ marked library loaded after ' + (Date.now() - startTime) + 'ms');
+                    clearInterval(checkMarked);
+                } else if (Date.now() - startTime > 2000) {
+                    console.error('[INIT] ERROR: marked library failed to load after 2 seconds');
+                    clearInterval(checkMarked);
+                }
+            }, 100);
+        } else {
+            console.log('[INIT] ✓ marked library available immediately');
+        }
+        
+        const socket = io();
+        let currentData = null;
+        let stocksData = null;
+        let greeksData = null;
+        let trendsRefreshInterval = null; // For auto-refresh
+
+        function switchTab(tabName) {
+            console.log('[TAB] switchTab called with:', tabName);
+            
+            // Clear any existing trends refresh interval
+            if (trendsRefreshInterval) {
+                clearInterval(trendsRefreshInterval);
+                trendsRefreshInterval = null;
+            }
+
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+                console.log('[TAB] Hiding tab:', tab.id);
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show the selected tab
+            const selectedTab = document.getElementById(tabName);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+                console.log('[TAB] Showing tab:', tabName);
+                console.log('[TAB] Tab has active class:', selectedTab.classList.contains('active'));
+                console.log('[TAB] Computed display style:', window.getComputedStyle(selectedTab).display);
+            } else {
+                console.error('[TAB] ERROR: Tab element not found:', tabName);
+                return;
+            }
+            
+            // Mark the button as active - find button by data attribute or by checking all buttons
+            // Method 1: Try to find by onclick attribute
+            let buttonFound = false;
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach((btn, index) => {
+                // Check if this button's onclick includes the tab name
+                const onclickAttr = btn.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes(tabName)) {
+                    btn.classList.add('active');
+                    console.log('[TAB] Marked button as active (method: onclick attribute)');
+                    buttonFound = true;
+                }
+            });
+            
+            // Method 2: If not found, try by text content
+            if (!buttonFound) {
+                buttons.forEach(btn => {
+                    const text = btn.textContent.toLowerCase();
+                    const tabLower = tabName.toLowerCase();
+                    // Match: stocks, options/analysis, greeks, trends, guide
+                    if (tabLower === 'options' && text.includes('analysis')) {
+                        btn.classList.add('active');
+                        console.log('[TAB] Marked button as active (method: text content - options/analysis)');
+                        buttonFound = true;
+                    } else if (text.includes(tabLower)) {
+                        btn.classList.add('active');
+                        console.log('[TAB] Marked button as active (method: text content -', tabLower + ')');
+                        buttonFound = true;
+                    }
+                });
+            }
+            
+            if (!buttonFound) {
+                console.warn('[TAB] WARNING: Could not find button for tab:', tabName);
+            }
+
+            // Load tab-specific data
+            if (tabName === 'stocks') {
+                loadStocksData();
+            } else if (tabName === 'options') {
+                // Options data is loaded via WebSocket
+            } else if (tabName === 'trends') {
+                loadTrendsData();
+                trendsRefreshInterval = setInterval(loadTrendsData, 15000);
+            } else if (tabName === 'greeks') {
+                if (greeksData) {
+                    console.log('[TAB] Greeks tab clicked - redisplaying Greeks data');
+                    displayGreeksData(greeksData);
+                }
+            } else if (tabName === 'guide') {
+                console.log('[TAB] Guide tab selected, calling loadGuide()');
+                loadGuide();
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.style.filter = document.documentElement.style.filter === 'invert(1)' ? '' : 'invert(1)';
+        }
+
+        function changeExpiry() {
+            const dateValue = document.getElementById('expiryInput').value;
+            if (dateValue) {
+                const date = new Date(dateValue);
+                const formatted = `${String(date.getDate()).padStart(2, '0')}-${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]}-${date.getFullYear()}`;
+                socket.emit('change_expiry', { expiry: formatted });
+            }
+        }
+
+        function loadGuide() {
+            console.log('[GUIDE] loadGuide() called');
+            
+            const guideLoading = document.getElementById('guide-loading');
+            const guideContent = document.getElementById('guide-content');
+            const guideMarkdown = document.getElementById('guide-markdown');
+            
+            console.log('[GUIDE] Elements found:', {
+                guideLoading: !!guideLoading,
+                guideContent: !!guideContent,
+                guideMarkdown: !!guideMarkdown
+            });
+            
+            if (!guideMarkdown) {
+                console.error('[GUIDE] ERROR: guide-markdown element not found!');
+                return;
+            }
+
+            // Show loading state
+            if (guideLoading) {
+                guideLoading.style.display = 'block';
+                console.log('[GUIDE] Loading indicator shown');
+            }
+            if (guideContent) guideContent.style.display = 'none';
+
+            // Fetch guide content
+            console.log('[GUIDE] Fetching /api/get-guide');
+            fetch('/api/get-guide')
+                .then(res => {
+                    console.log('[GUIDE] API Response status:', res.status);
+                    if (!res.ok) {
+                        throw new Error(`HTTP Error: ${res.status} ${res.statusText}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('[GUIDE] API Response received:', {
+                        success: data.success,
+                        contentLength: data.content ? data.content.length : 0
+                    });
+                    
+                    if (!data.success) {
+                        throw new Error(data.error || 'API returned success=false');
+                    }
+                    
+                    if (!data.content) {
+                        throw new Error('API returned empty content');
+                    }
+                    
+                    // Parse markdown with robust fallback
+                    let html = '';
+                    console.log('[GUIDE] marked library status:', {
+                        exists: typeof window.marked !== 'undefined',
+                        type: typeof window.marked,
+                        hasParse: window.marked && typeof window.marked.parse === 'function'
+                    });
+                    
+                    try {
+                        // Try newer marked API (v5+)
+                        if (window.marked && typeof window.marked.parse === 'function') {
+                            console.log('[GUIDE] Using marked.parse()');
+                            html = window.marked.parse(data.content);
+                        }
+                        // Try older marked API
+                        else if (window.marked && typeof window.marked === 'function') {
+                            console.log('[GUIDE] Using marked() function');
+                            html = window.marked(data.content);
+                        }
+                        // Fallback to plain text
+                        else {
+                            console.log('[GUIDE] marked library not available, using fallback');
+                            html = '<pre style="white-space: pre-wrap; font-size: 13px; line-height: 1.5;">' + 
+                                   escapeHtml(data.content) + '</pre>';
+                        }
+                    } catch (parseErr) {
+                        console.error('[GUIDE] Error parsing markdown:', parseErr);
+                        // Fallback to plain text if parsing fails
+                        html = '<pre style="white-space: pre-wrap; font-size: 13px; line-height: 1.5;">' + 
+                               escapeHtml(data.content) + '</pre>';
+                    }
+                    
+                    console.log('[GUIDE] HTML generated, length:', html.length);
+                    
+                    // Insert content into DOM
+                    if (guideMarkdown) {
+                        guideMarkdown.innerHTML = html;
+                        console.log('[GUIDE] Content inserted into guide-markdown');
+                    }
+                    
+                    // Hide loading, show content
+                    if (guideLoading) {
+                        guideLoading.style.display = 'none';
+                        console.log('[GUIDE] Loading indicator hidden');
+                    }
+                    if (guideContent) {
+                        guideContent.style.display = 'block';
+                        console.log('[GUIDE] Content container shown');
+                    }
+                    
+                    console.log('[GUIDE] ✓ loadGuide() completed successfully');
+                })
+                .catch(err => {
+                    console.error('[GUIDE] ✗ ERROR:', err);
+                    console.error('[GUIDE] Error stack:', err.stack);
+                    
+                    // Show error message to user
+                    if (guideLoading) {
+                        guideLoading.innerHTML = '<div style="color: #FF6B6B; padding: 20px; background: rgba(255,107,107,0.1); border-radius: 8px;">' +
+                                                '<strong>Failed to load guide:</strong><br>' +
+                                                '<code style="font-size: 12px; color: #FFB6B6;">' + 
+                                                escapeHtml(err.message) + 
+                                                '</code></div>';
+                    }
+                });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Debug helper function - call this in console if Guide tab isn't showing
+        function debugGuideTab() {
+            console.log('\n' + '='.repeat(70));
+            console.log('GUIDE TAB DEBUG INFORMATION');
+            console.log('='.repeat(70));
+            
+            const guideDiv = document.getElementById('guide');
+            const guideMarkdown = document.getElementById('guide-markdown');
+            const guideContent = document.getElementById('guide-content');
+            const guideLoading = document.getElementById('guide-loading');
+            
+            // Check if elements exist
+            console.log('\n[ELEMENTS]');
+            console.log('  guide div exists:', !!guideDiv);
+            console.log('  guide-markdown exists:', !!guideMarkdown);
+            console.log('  guide-content exists:', !!guideContent);
+            console.log('  guide-loading exists:', !!guideLoading);
+            
+            if (!guideDiv) {
+                console.error('  ✗ guide div not found!');
+                return;
+            }
+            
+            // Check classes
+            console.log('\n[CLASSES]');
+            console.log('  guide classes:', guideDiv.className);
+            console.log('  has "active" class:', guideDiv.classList.contains('active'));
+            
+            // Check computed styles
+            console.log('\n[COMPUTED STYLES]');
+            const style = window.getComputedStyle(guideDiv);
+            console.log('  display:', style.display);
+            console.log('  visibility:', style.visibility);
+            console.log('  opacity:', style.opacity);
+            console.log('  width:', style.width);
+            console.log('  height:', style.height);
+            console.log('  z-index:', style.zIndex);
+            
+            // Check inline styles
+            console.log('\n[INLINE STYLES]');
+            console.log('  guide style attribute:', guideDiv.getAttribute('style') || '(none)');
+            console.log('  guide-content style:', guideContent ? guideContent.getAttribute('style') : '(element not found)');
+            console.log('  guide-markdown style:', guideMarkdown ? guideMarkdown.getAttribute('style') : '(element not found)');
+            
+            // Check content
+            console.log('\n[CONTENT]');
+            if (guideMarkdown) {
+                const content = guideMarkdown.innerHTML;
+                console.log('  guide-markdown innerHTML length:', content.length);
+                if (content.length > 0) {
+                    console.log('  First 100 chars:', content.substring(0, 100));
+                } else {
+                    console.log('  ⚠ guide-markdown is empty!');
+                }
+            }
+            
+            // Check buttons
+            console.log('\n[BUTTONS]');
+            const buttons = document.querySelectorAll('.tab-button');
+            let guideButton = null;
+            buttons.forEach((btn, i) => {
+                const onclick = btn.getAttribute('onclick');
+                if (onclick && onclick.includes('guide')) {
+                    console.log('  Found guide button at index', i);
+                    console.log('    Text:', btn.textContent);
+                    console.log('    Has "active" class:', btn.classList.contains('active'));
+                    guideButton = btn;
+                }
+            });
+            if (!guideButton) {
+                console.error('  ✗ Guide button not found!');
+            }
+            
+            // Summary
+            console.log('\n' + '='.repeat(70));
+            if (guideDiv.classList.contains('active') && style.display === 'block') {
+                console.log('✓ GUIDE TAB SHOULD BE VISIBLE');
+            } else {
+                console.log('✗ GUIDE TAB IS NOT VISIBLE');
+                if (!guideDiv.classList.contains('active')) {
+                    console.log('  Problem: guide div does not have "active" class');
+                    console.log('  Solution: Click the Guide button, or try: guideDiv.classList.add("active")');
+                }
+                if (style.display !== 'block') {
+                    console.log('  Problem: guide div display is "' + style.display + '" instead of "block"');
+                }
+            }
+            console.log('='.repeat(70) + '\n');
+        }
+
+        function loadStocksData() {
+            document.getElementById('stocks-loading').style.display = 'block';
+            document.getElementById('stocks-content').classList.add('hidden');
+
+            fetch('/api/analyze-stocks')
+                .then(res => res.json())
+                .then(data => {
+                    stocksData = data;
+                    displayStocksData(data);
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    document.getElementById('stocks-loading').innerHTML = '<p style="color: red;">Failed to load data</p>';
+                });
+        }
+
+        function displayStocksData(data) {
+            const trend = data.trend;
+            document.getElementById('stocks-trend').textContent = trend.trend;
+            document.getElementById('stocks-trend-detail').textContent = `Avg Change: ${trend.avg_change}%`;
+            document.getElementById('stocks-advancers').textContent = trend.advancers;
+            document.getElementById('stocks-decliners').textContent = trend.decliners;
+
+            const power = data.power;
+            document.getElementById('stocks-bull').textContent = power.bull_power;
+            document.getElementById('stocks-bear').textContent = power.bear_power;
+            document.getElementById('stocks-net').textContent = power.net_power;
+
+            const insights = data.insights;
+            document.getElementById('stocks-sentiment').textContent = insights.market_sentiment;
+            document.getElementById('stocks-breadth').textContent = insights.breadth_ratio + '%';
+            document.getElementById('stocks-breadth-bar').style.width = insights.breadth_ratio + '%';
+            document.getElementById('stocks-volatility').textContent = insights.avg_volatility.toFixed(2) + '%';
+            document.getElementById('stocks-gainers').textContent = insights.strong_gainers;
+            document.getElementById('stocks-losers').textContent = insights.strong_losers;
+            document.getElementById('stocks-total-vol').textContent = (insights.total_volume / 1000000).toFixed(1) + 'M';
+
+            // Populate GAINERS table with ALL gaining stocks
+            const gainersBody = document.getElementById('stocks-gainers-table');
+            gainersBody.innerHTML = data.gainers.map(s => `
+                <tr>
+                    <td><strong>${s.symbol}</strong></td>
+                    <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                    <td class="text-right" style="color: #4CAF50;">+${s.change.toFixed(2)}</td>
+                    <td class="text-right" style="color: #4CAF50;">+${s.pChange.toFixed(2)}%</td>
+                </tr>
+            `).join('');
+
+            // Populate LOSERS table with ALL losing stocks
+            const losersBody = document.getElementById('stocks-losers-table');
+            losersBody.innerHTML = data.losers.map(s => `
+                <tr>
+                    <td><strong>${s.symbol}</strong></td>
+                    <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                    <td class="text-right" style="color: #FF6B6B;">${s.change.toFixed(2)}</td>
+                    <td class="text-right" style="color: #FF6B6B;">${s.pChange.toFixed(2)}%</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('stocks-loading').style.display = 'none';
+            document.getElementById('stocks-content').classList.remove('hidden');
+        }
+
+        let stocksGainersSort = { column: null, direction: 'asc' };
+        let stocksLosersSort = { column: null, direction: 'asc' };
+
+        function sortStocksGainersTable(column) {
+            if (!stocksData) return;
+            let gainers = [...stocksData.gainers];
+            if (stocksGainersSort.column === column) {
+                stocksGainersSort.direction = stocksGainersSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                stocksGainersSort.column = column;
+                stocksGainersSort.direction = 'asc';
+            }
+            gainers.sort((a, b) => {
+                const aVal = a[column];
+                const bVal = b[column];
+                const comparison = aVal > bVal ? 1 : -1;
+                return stocksGainersSort.direction === 'asc' ? comparison : -comparison;
+            });
+            const gainersBody = document.getElementById('stocks-gainers-table');
+            gainersBody.innerHTML = gainers.map(s => `
+                <tr>
+                    <td><strong>${s.symbol}</strong></td>
+                    <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                    <td class="text-right" style="color: #4CAF50;">+${s.change.toFixed(2)}</td>
+                    <td class="text-right" style="color: #4CAF50;">+${s.pChange.toFixed(2)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function sortStocksLosersTable(column) {
+            if (!stocksData) return;
+            let losers = [...stocksData.losers];
+            if (stocksLosersSort.column === column) {
+                stocksLosersSort.direction = stocksLosersSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                stocksLosersSort.column = column;
+                stocksLosersSort.direction = 'asc';
+            }
+            losers.sort((a, b) => {
+                const aVal = a[column];
+                const bVal = b[column];
+                const comparison = aVal > bVal ? 1 : -1;
+                return stocksLosersSort.direction === 'asc' ? comparison : -comparison;
+            });
+            const losersBody = document.getElementById('stocks-losers-table');
+            losersBody.innerHTML = losers.map(s => `
+                <tr>
+                    <td><strong>${s.symbol}</strong></td>
+                    <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                    <td class="text-right" style="color: #FF6B6B;">${s.change.toFixed(2)}</td>
+                    <td class="text-right" style="color: #FF6B6B;">${s.pChange.toFixed(2)}%</td>
+                </tr>
+            `).join('');
+        }
+
+        function loadTrendsData() {
+            document.getElementById('trends-loading').style.display = 'block';
+            document.getElementById('trends-content').classList.add('hidden');
+
+            // Load both trends and stocks data
+            Promise.all([
+                fetch('/api/get-trends').then(res => {
+                    console.log('API Response Status:', res.status);
+                    return res.json().then(data => {
+                        console.log('API Response Data:', data);
+                        if (!res.ok) {
+                            throw new Error(`API Error (${res.status}): ${data.error || 'Unknown error'}`);
+                        }
+                        return data;
+                    });
+                }),
+                fetch('/api/analyze-stocks').then(res => res.json())
+            ])
+            .then(([trendsData, stocksData]) => {
+                console.log('Fetched trends data:', trendsData);
+                displayTrendsData(trendsData, stocksData);
+            })
+            .catch(err => {
+                console.error('Error loading trends:', err);
+                document.getElementById('trends-loading').innerHTML = '<p style="color: red;">Failed to load trend data: ' + err.message + '</p>';
+            });
+        }
+
+        function displayTrendsData(data, stocksData) {
+            console.log('displayTrendsData called with:', data);
+            console.log('stocksData:', stocksData);
+            
+            try {
+                // Display combined market trend and primary signal info
+                if (stocksData && stocksData.trend) {
+                    const trend = stocksData.trend;
+                    const trendElement = document.getElementById('trends-market-trend');
+                    
+                    if (trendElement) {
+                        // Set text
+                        trendElement.textContent = trend.trend;
+                        
+                        // Add color based on trend
+                        let trendColor = '#FFA500'; // Neutral (orange)
+                        if (trend.trend.includes('Bullish')) {
+                            trendColor = '#4CAF50'; // Green
+                        } else if (trend.trend.includes('Bearish')) {
+                            trendColor = '#FF6B6B'; // Red
+                        }
+                        trendElement.style.color = trendColor;
+                        
+                        // Update advancers and decliners in combined card
+                        const advancersElem = document.getElementById('trends-advancers');
+                        const declinersElem = document.getElementById('trends-decliners');
+                        const avgChangeElem = document.getElementById('trends-avg-change');
+                        
+                        if (advancersElem) advancersElem.textContent = trend.advancers;
+                        if (declinersElem) declinersElem.textContent = trend.decliners;
+                        if (avgChangeElem) avgChangeElem.textContent = `${trend.avg_change}%`;
+                        
+                        // Update advancers/decliners bar visualization
+                        const totalStocks = trend.advancers + trend.decliners;
+                        let advancersPercent = 50;
+                        let declinersPercent = 50;
+                        
+                        if (totalStocks > 0) {
+                            advancersPercent = (trend.advancers / totalStocks) * 100;
+                            declinersPercent = (trend.decliners / totalStocks) * 100;
+                        }
+                        
+                        const advancersPortion = document.getElementById('advancers-portion');
+                        const declinersPortion = document.getElementById('decliners-portion');
+                        const advancersLabel = document.getElementById('advancers-label');
+                        const declinersLabel = document.getElementById('decliners-label');
+                        const advancersCountElem = document.getElementById('trends-advancers-count');
+                        const declinersCountElem = document.getElementById('trends-decliners-count');
+                        
+                        if (advancersPortion) advancersPortion.style.width = advancersPercent + '%';
+                        if (declinersPortion) declinersPortion.style.width = declinersPercent + '%';
+                        if (advancersLabel) advancersLabel.textContent = Math.round(advancersPercent) + '%';
+                        if (declinersLabel) declinersLabel.textContent = Math.round(declinersPercent) + '%';
+                        if (advancersCountElem) advancersCountElem.textContent = trend.advancers;
+                        if (declinersCountElem) declinersCountElem.textContent = trend.decliners;
+                    }
+                }
+
+                // Display primary signal from options data (if available)
+                if (currentData && currentData.final_signal) {
+                    const signalElement = document.getElementById('trends-primary-signal');
+                    if (signalElement) {
+                        signalElement.textContent = currentData.final_signal;
+                        
+                        // Add color based on signal
+                        let signalColor = '#FFA500'; // Neutral (orange)
+                        if (currentData.final_signal.includes('BULLISH')) {
+                            signalColor = '#4CAF50'; // Green
+                        } else if (currentData.final_signal.includes('BEARISH')) {
+                            signalColor = '#FF6B6B'; // Red
+                        }
+                        signalElement.style.color = signalColor;
+                        
+                        // Update signal details in combined card
+                        const confidenceElem = document.getElementById('trends-confidence');
+                        const actionElem = document.getElementById('trends-action');
+                        if (confidenceElem) confidenceElem.textContent = `${currentData.confidence}%`;
+                        if (actionElem) actionElem.textContent = currentData.action;
+                    }
+                }
+
+                // Display OI Buildup Signal (CE vs PE)
+                if (currentData && currentData.oi_buildup_analysis) {
+                    const builtup = currentData.oi_buildup_analysis;
+                    const builupElement = document.getElementById('trends-oi-buildup-signal');
+                    
+                    if (builupElement) {
+                        builupElement.textContent = builtup.signal;
+                        
+                        // Add color based on buildup signal
+                        let builupColor = '#FFA500'; // Neutral (orange)
+                        if (builtup.signal.includes('BULLISH')) {
+                            builupColor = '#4CAF50'; // Green
+                        } else if (builtup.signal.includes('BEARISH')) {
+                            builupColor = '#FF6B6B'; // Red
+                        }
+                        builupElement.style.color = builupColor;
+                        
+                        // Update buildup details
+                        const interpretationElem = document.getElementById('trends-buildup-interpretation');
+                        const callWritingElem = document.getElementById('trends-call-writing');
+                        const putWritingElem = document.getElementById('trends-put-writing');
+                        
+                        if (interpretationElem) interpretationElem.textContent = builtup.interpretation;
+                        if (callWritingElem) callWritingElem.textContent = Math.abs(builtup.call_writing || 0).toLocaleString();
+                        if (putWritingElem) putWritingElem.textContent = Math.abs(builtup.put_writing || 0).toLocaleString();
+                        
+                        // Update Call vs Put bar visualization
+                        const call_val = Math.abs(builtup.call_writing || 0);
+                        const put_val = Math.abs(builtup.put_writing || 0);
+                        const totalOI = call_val + put_val;
+                        let callPercent = 50;
+                        let putPercent = 50;
+                        
+                        if (totalOI > 0) {
+                            callPercent = (call_val / totalOI) * 100;
+                            putPercent = (put_val / totalOI) * 100;
+                        }
+                        
+                        const callPortion = document.getElementById('call-portion');
+                        const putPortion = document.getElementById('put-portion');
+                        const callLabel = document.getElementById('call-label');
+                        const putLabel = document.getElementById('put-label');
+                        const callCountElem = document.getElementById('trends-call-count');
+                        const putCountElem = document.getElementById('trends-put-count');
+                        
+                        if (callPortion) callPortion.style.width = callPercent + '%';
+                        if (putPortion) putPortion.style.width = putPercent + '%';
+                        if (callLabel) callLabel.textContent = Math.round(callPercent) + '%';
+                        if (putLabel) putLabel.textContent = Math.round(putPercent) + '%';
+                        if (callCountElem) callCountElem.textContent = call_val.toLocaleString();
+                        if (putCountElem) putCountElem.textContent = put_val.toLocaleString();
+                        
+                        // Derive decision based on CE vs PE buildup
+                        let decision = 'NEUTRAL';
+                        let rationale = 'Balanced OI buildup';
+                        let decisionColor = '#FFA500';
+                        
+                        if (put_val > call_val * 1.5) {
+                            decision = 'PUT DOMINANCE';
+                            rationale = 'Heavy PE writing indicates bearish correction setup';
+                            decisionColor = '#4CAF50'; // Green - bullish due to PE writing
+                        } else if (call_val > put_val * 1.5) {
+                            decision = 'CALL DOMINANCE';
+                            rationale = 'Heavy CE writing indicates bearish trend continuation';
+                            decisionColor = '#FF6B6B'; // Red - bearish due to CE writing
+                        } else {
+                            decision = 'BALANCED';
+                            rationale = 'Mixed signals - stay cautious';
+                            decisionColor = '#FFA500';
+                        }
+                        
+                        const decisionElement = document.getElementById('trends-derived-decision');
+                        const rationaleElement = document.getElementById('trends-decision-rationale');
+                        
+                        if (decisionElement) {
+                            decisionElement.textContent = decision;
+                            decisionElement.style.color = decisionColor;
+                        }
+                        if (rationaleElement) rationaleElement.textContent = rationale;
+                    }
+                }
+
+                // Display trend statistics
+                const stats = data.statistics || {};
+                const totalElem = document.getElementById('trends-total');
+                if (totalElem) totalElem.textContent = stats.total_trends || 0;
+                
+                const sentimentBreakdown = stats.sentiment_breakdown || {};
+                const bullishElem = document.getElementById('trends-bullish');
+                const bearishElem = document.getElementById('trends-bearish');
+                const neutralElem = document.getElementById('trends-neutral');
+                
+                if (bullishElem) bullishElem.textContent = sentimentBreakdown.bullish || 0;
+                if (bearishElem) bearishElem.textContent = sentimentBreakdown.bearish || 0;
+                if (neutralElem) neutralElem.textContent = sentimentBreakdown.neutral || 0;
+
+                // Display PCR Analysis
+                const pcrAnalysis = stats.pcr_analysis || {};
+                if (pcrAnalysis.highest_pcr !== null && pcrAnalysis.highest_pcr !== undefined) {
+                    const highElem = document.getElementById('trend-pcr-high');
+                    const lowElem = document.getElementById('trend-pcr-low');
+                    const currentElem = document.getElementById('trend-pcr');
+                    const rangeElem = document.getElementById('trend-pcr-range');
+                    
+                    if (highElem) highElem.textContent = pcrAnalysis.highest_pcr.toFixed(3);
+                    if (lowElem) lowElem.textContent = pcrAnalysis.lowest_pcr.toFixed(3);
+                    if (currentElem) currentElem.textContent = pcrAnalysis.current_pcr.toFixed(3);
+                    if (rangeElem) rangeElem.textContent = pcrAnalysis.pcr_range.toFixed(3);
+                    
+                    // Update PCR Bar visualization
+                    const currentPCR = pcrAnalysis.current_pcr;
+                    const highPCR = pcrAnalysis.highest_pcr;
+                    const lowPCR = pcrAnalysis.lowest_pcr;
+                    
+                    // Calculate percentage position within the range
+                    const range = highPCR - lowPCR;
+                    const positionPercent = range > 0 ? ((currentPCR - lowPCR) / range) * 100 : 50;
+                    
+                    // Clamp between 0-100 in case current is outside range
+                    const clampedPercent = Math.max(0, Math.min(100, positionPercent));
+                    
+                    const pcrBarFill = document.getElementById('pcr-bar-fill');
+                    const pcrBarMarker = document.getElementById('pcr-bar-marker');
+                    const pcrBarLow = document.getElementById('pcr-bar-low');
+                    const pcrBarHigh = document.getElementById('pcr-bar-high');
+                    const pcrBarCurrent = document.getElementById('pcr-bar-current');
+                    
+                    if (pcrBarFill) pcrBarFill.style.width = clampedPercent + '%';
+                    if (pcrBarMarker) pcrBarMarker.style.left = clampedPercent + '%';
+                    if (pcrBarLow) pcrBarLow.textContent = lowPCR.toFixed(3);
+                    if (pcrBarHigh) pcrBarHigh.textContent = highPCR.toFixed(3);
+                    if (pcrBarCurrent) pcrBarCurrent.textContent = currentPCR.toFixed(3);
+                    
+                    // Display direction with arrow
+                    const direction = pcrAnalysis.pcr_direction;
+                    const change = pcrAnalysis.pcr_change;
+                    const changePercent = pcrAnalysis.pcr_change_percent;
+                    let directionText = '-';
+                    let directionColor = '#FFA500';
+                    
+                    if (direction === 'up') {
+                        directionText = `📈 Moving UP (${Math.abs(change).toFixed(3)}, ${changePercent}%)`;
+                        directionColor = '#4CAF50'; // Green
+                    } else if (direction === 'down') {
+                        directionText = `📉 Moving DOWN (${Math.abs(change).toFixed(3)}, ${changePercent}%)`;
+                        directionColor = '#FF6B6B'; // Red
+                    } else {
+                        directionText = '➡️ Neutral';
+                    }
+                    
+                    const directionElement = document.getElementById('trend-pcr-direction');
+                    if (directionElement) {
+                        directionElement.textContent = directionText;
+                        directionElement.style.color = directionColor;
+                    }
+                    
+                    // Update PCR description and trend
+                    const descElem = document.getElementById('trend-pcr-desc');
+                    const trendElem = document.getElementById('trend-pcr-trend');
+                    
+                    if (descElem) descElem.textContent = pcrAnalysis.pcr_trend || '-';
+                    if (trendElem) trendElem.textContent = pcrAnalysis.pcr_trend || '-';
+                    
+                    // Update PCR signal badge styling
+                    const pcrSignalBadge = document.getElementById('trend-pcr-signal');
+                    if (pcrSignalBadge) {
+                        pcrSignalBadge.className = 'signal-badge';
+                        if (pcrAnalysis.pcr_trend && pcrAnalysis.pcr_trend.includes('BULLISH')) {
+                            pcrSignalBadge.classList.add('signal-bullish');
+                        } else if (pcrAnalysis.pcr_trend && pcrAnalysis.pcr_trend.includes('BEARISH')) {
+                            pcrSignalBadge.classList.add('signal-bearish');
+                        } else {
+                            pcrSignalBadge.classList.add('signal-neutral');
+                        }
+                        pcrSignalBadge.textContent = pcrAnalysis.current_pcr.toFixed(3);
+                    }
+                }
+
+                // Display recent trends in table - sorted with latest time first
+                let trends = data.recent_trends || [];
+                console.log('Trends data:', trends);
+                console.log('Trends length:', trends.length);
+                
+                // Sort trends by timestamp in descending order (latest first)
+                trends = trends.sort((a, b) => {
+                    const timeA = new Date(a.timestamp).getTime();
+                    const timeB = new Date(b.timestamp).getTime();
+                    return timeB - timeA; // Latest first
+                });
+                
+                const tbody = document.getElementById('trends-table-body');
+                
+                if (trends.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="padding: 20px; text-align: center; color: var(--text-secondary);">No trend data available yet</td></tr>';
+                } else {
+                    tbody.innerHTML = trends.map(trend => {
+                        const timestamp = new Date(trend.timestamp).toLocaleString();
+                        const sentimentColor = trend.sentiment === 'bullish' ? '#4CAF50' : trend.sentiment === 'bearish' ? '#FF6B6B' : '#FFA500';
+                        return `
+                            <tr>
+                                <td style="padding: 8px;">${timestamp}</td>
+                                <td style="padding: 8px;">${trend.nifty_value?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px;">${trend.pcr_oi?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px;">${trend.pcr_volume?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px; color: ${sentimentColor}; font-weight: bold;">${trend.sentiment || '-'}</td>
+                            <td style="padding: 8px;">${trend.iv_rank || '-'}</td>
+                            <td style="padding: 8px;">${trend.call_oi ? trend.call_oi.toLocaleString() : '-'}</td>
+                            <td style="padding: 8px;">${trend.put_oi ? trend.put_oi.toLocaleString() : '-'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Plot all trend charts
+            if (trends.length > 0) {
+                plotTrendChart(trends);
+                plotAdvancersDeclinersChart(trends);
+                plotCallPutWritingChart(trends);
+                plotNiftyValueChart(trends);
+                plotCallPutOIChart(trends);
+                plotConfidenceChart(trends);
+            }
+
+            document.getElementById('trends-loading').style.display = 'none';
+            document.getElementById('trends-content').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error in displayTrendsData:', error);
+                console.error('Stack trace:', error.stack);
+                document.getElementById('trends-loading').innerHTML = '<p style="color: red;">Error displaying trends: ' + error.message + '</p>';
+            }
+        }
+
+        function plotTrendChart(trends) {
+            const ctx = document.getElementById('trendChart');
+            if (!ctx) return;
+
+            // Prepare data for chart
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const pcrOI = trends.map(t => t.pcr_oi || 0);
+            const pcrVol = trends.map(t => t.pcr_volume || 0);
+            const niftyValues = trends.map(t => t.nifty_value || 0);
+
+            // Destroy existing chart if any
+            if (window.trendChartInstance) {
+                window.trendChartInstance.destroy();
+            }
+
+            window.trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'PCR (OI)',
+                            data: pcrOI,
+                            borderColor: '#00bfff',
+                            backgroundColor: 'rgba(0, 191, 255, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true
+                        },
+                        {
+                            label: 'PCR (Volume)',
+                            data: pcrVol,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#b0b8d4',
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' },
+                            title: { display: true, text: 'PCR Value', color: '#b0b8d4' }
+                        },
+                        x: {
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function plotAdvancersDeclinersChart(trends) {
+            const ctx = document.getElementById('advancersDeclinersChart');
+            if (!ctx) return;
+
+            // Prepare data for chart
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const advancers = trends.map(t => t.advancers || 0);
+            const decliners = trends.map(t => t.decliners || 0);
+
+            // Destroy existing chart if any
+            if (window.advancersDeclinersChartInstance) {
+                window.advancersDeclinersChartInstance.destroy();
+            }
+
+            window.advancersDeclinersChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'Advancers',
+                            data: advancers,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Decliners',
+                            data: decliners,
+                            borderColor: '#FF6B6B',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#b0b8d4',
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' },
+                            title: { display: true, text: 'Count', color: '#b0b8d4' },
+                            beginAtZero: true
+                        },
+                        x: {
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function plotCallPutWritingChart(trends) {
+            const ctx = document.getElementById('callPutWritingChart');
+            if (!ctx) return;
+
+            // Prepare data for chart
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const callWriting = trends.map(t => Math.abs(t.call_writing || 0));
+            const putWriting = trends.map(t => Math.abs(t.put_writing || 0));
+
+            // Destroy existing chart if any
+            if (window.callPutWritingChartInstance) {
+                window.callPutWritingChartInstance.destroy();
+            }
+
+            window.callPutWritingChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'Call Writing',
+                            data: callWriting,
+                            borderColor: '#FF6B6B',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Put Writing',
+                            data: putWriting,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            fill: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#b0b8d4',
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' },
+                            title: { display: true, text: 'OI Change', color: '#b0b8d4' },
+                            beginAtZero: true
+                        },
+                        x: {
+                            ticks: { color: '#b0b8d4' },
+                            grid: { color: '#3a4563' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function plotNiftyValueChart(trends) {
+            const ctx = document.getElementById('niftyValueChart');
+            if (!ctx) return;
+
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const niftyValues = trends.map(t => t.nifty_value || 0);
+
+            if (window.niftyValueChartInstance) {
+                window.niftyValueChartInstance.destroy();
+            }
+
+            window.niftyValueChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'Nifty Value',
+                        data: niftyValues,
+                        borderColor: '#00bfff',
+                        backgroundColor: 'rgba(0, 191, 255, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, labels: { color: '#b0b8d4', font: { size: 12 } } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' }, title: { display: true, text: 'Nifty Value', color: '#b0b8d4' } },
+                        x: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' } }
+                    }
+                }
+            });
+        }
+
+        function plotCallPutOIChart(trends) {
+            const ctx = document.getElementById('callPutOIChart');
+            if (!ctx) return;
+
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const callOI = trends.map(t => t.call_oi || 0);
+            const putOI = trends.map(t => t.put_oi || 0);
+
+            if (window.callPutOIChartInstance) {
+                window.callPutOIChartInstance.destroy();
+            }
+
+            window.callPutOIChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'Call OI',
+                            data: callOI,
+                            borderColor: '#FF6B6B',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Put OI',
+                            data: putOI,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, labels: { color: '#b0b8d4', font: { size: 12 } } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' }, title: { display: true, text: 'Open Interest', color: '#b0b8d4' } },
+                        x: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' } }
+                    }
+                }
+            });
+        }
+
+        function plotConfidenceChart(trends) {
+            const ctx = document.getElementById('confidenceChart');
+            if (!ctx) return;
+
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const confidence = trends.map(t => t.confidence || 0);
+
+            if (window.confidenceChartInstance) {
+                window.confidenceChartInstance.destroy();
+            }
+
+            window.confidenceChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'Confidence %',
+                        data: confidence,
+                        borderColor: '#FFC107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, labels: { color: '#b0b8d4', font: { size: 12 } } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' }, title: { display: true, text: 'Confidence %', color: '#b0b8d4' }, min: 0, max: 100 },
+                        x: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' } }
+                    }
+                }
+            });
+        }
+
+        function displayOptionsData(data) {
+            // Add safe check for required elements
+            const optionsLoading = document.getElementById('options-loading');
+            const optionsContent = document.getElementById('options-content');
+            
+            if (!optionsLoading || !optionsContent) {
+                console.log('Options elements not found in DOM, skipping options data display');
+                return;
+            }
+            
+            try {
+                document.getElementById('options-signal').textContent = data.final_signal;
+                document.getElementById('options-action').textContent = data.action;
+                document.getElementById('options-confidence').textContent = data.confidence + '%';
+                
+                const badge = document.getElementById('options-signal-badge');
+                badge.className = 'signal-badge';
+                if (data.final_signal.includes('BULLISH')) badge.classList.add('signal-bullish');
+                else if (data.final_signal.includes('BEARISH')) badge.classList.add('signal-bearish');
+                else badge.classList.add('signal-neutral');
+                badge.textContent = data.final_signal;
+
+                const pcr = data.pcr_analysis;
+                document.getElementById('options-pcr').textContent = pcr.pcr_oi;
+                document.getElementById('options-pcr-signal').className = 'signal-badge';
+                if (pcr.signal.includes('BULLISH')) document.getElementById('options-pcr-signal').classList.add('signal-bullish');
+                else if (pcr.signal.includes('BEARISH')) document.getElementById('options-pcr-signal').classList.add('signal-bearish');
+                else document.getElementById('options-pcr-signal').classList.add('signal-neutral');
+                document.getElementById('options-pcr-signal').textContent = pcr.signal;
+
+                const maxPain = data.max_pain_analysis;
+                document.getElementById('options-max-pain').textContent = maxPain.max_pain_strike.toLocaleString();
+                document.getElementById('options-spot').textContent = data.underlying_value.toLocaleString();
+
+                const oi = data.oi_buildup_analysis;
+                document.getElementById('options-oi-pattern').textContent = oi.call_writing > oi.put_writing ? 'Heavy CE' : 'Heavy PE';
+                document.getElementById('options-oi-signal').className = 'signal-badge';
+                if (oi.signal.includes('BULLISH')) document.getElementById('options-oi-signal').classList.add('signal-bullish');
+                else if (oi.signal.includes('BEARISH')) document.getElementById('options-oi-signal').classList.add('signal-bearish');
+                else document.getElementById('options-oi-signal').classList.add('signal-neutral');
+                document.getElementById('options-oi-signal').textContent = oi.signal;
+                document.getElementById('options-call-oi').textContent = (oi.call_writing / 1000000).toFixed(2) + 'M';
+                document.getElementById('options-put-oi').textContent = (oi.put_writing / 1000000).toFixed(2) + 'M';
+                
+                // Display buildup types
+                if (oi.ce_buildup_type) {
+                    document.getElementById('options-ce-buildup').textContent = oi.ce_buildup_type;
+                    document.getElementById('options-ce-buildup').style.color = oi.ce_buildup_type === 'STRONG' ? 'var(--success)' : 'var(--warning)';
+                }
+                if (oi.pe_buildup_type) {
+                    document.getElementById('options-pe-buildup').textContent = oi.pe_buildup_type;
+                    document.getElementById('options-pe-buildup').style.color = oi.pe_buildup_type === 'STRONG' ? 'var(--success)' : 'var(--warning)';
+                }
+
+                const pressure = data.pressure_analysis;
+                document.getElementById('options-pressure').textContent = pressure.net_pressure > 0 ? 'PE > CE' : 'CE > PE';
+                document.getElementById('options-pressure-signal').className = 'signal-badge';
+                if (pressure.signal.includes('BULLISH')) document.getElementById('options-pressure-signal').classList.add('signal-bullish');
+                else if (pressure.signal.includes('BEARISH')) document.getElementById('options-pressure-signal').classList.add('signal-bearish');
+                else document.getElementById('options-pressure-signal').classList.add('signal-neutral');
+                document.getElementById('options-pressure-signal').textContent = pressure.signal;
+                document.getElementById('options-net-pressure').textContent = pressure.net_pressure.toFixed(3);
+
+                const iv = data.iv_analysis;
+                document.getElementById('options-atm-iv').textContent = iv.atm_iv + '%';
+                document.getElementById('options-skew').textContent = (iv.iv_skew > 0 ? '+' : '') + iv.iv_skew + '%';
+                document.getElementById('options-ce-iv').textContent = iv.avg_ce_iv + '%';
+                document.getElementById('options-pe-iv').textContent = iv.avg_pe_iv + '%';
+
+                const levels = data.support_resistance;
+                document.getElementById('options-resistance').textContent = levels.immediate_resistance?.toLocaleString() || '-';
+                document.getElementById('options-support').textContent = levels.immediate_support?.toLocaleString() || '-';
+
+                document.getElementById('options-overall-pcr').textContent = data.overall_pcr?.toFixed(3) || '-';
+                document.getElementById('options-pcr-volume').textContent = data.overall_pcr_volume?.toFixed(3) || '-';
+                document.getElementById('options-timestamp').textContent = data.timestamp;
+
+                // Store current data for table rendering
+                currentData = data;
+                
+                // Render options chain table
+                createOptionsColumnToggles();
+                renderOptionsTable();
+
+                document.getElementById('options-loading').style.display = 'none';
+                document.getElementById('options-content').classList.remove('hidden');
+            } catch (e) {
+                console.error('Error in displayOptionsData:', e);
+            }
+        }
+
+        function displayTrendData(data) {
+            try {
+                // Helper function to safely set element content
+                const safeSetContent = (id, value) => {
+                    const elem = document.getElementById(id);
+                    if (elem) elem.textContent = value;
+                };
+
+                // Helper function to safely set badge classes
+                const safeSetBadge = (id, signalText) => {
+                    const elem = document.getElementById(id);
+                    if (elem) {
+                        elem.className = 'signal-badge';
+                        if (signalText && signalText.includes('BULLISH')) elem.classList.add('signal-bullish');
+                        else if (signalText && signalText.includes('BEARISH')) elem.classList.add('signal-bearish');
+                        else elem.classList.add('signal-neutral');
+                        elem.textContent = signalText;
+                    }
+                };
+
+                // Only set content if elements exist
+                safeSetContent('trend-signal', data.final_signal);
+                safeSetContent('trend-action', data.action);
+                safeSetContent('trend-confidence', data.confidence + '%');
+
+                safeSetBadge('trend-badge', data.final_signal);
+
+                const pcr = data.pcr_analysis;
+                safeSetContent('trend-pcr', pcr.pcr_oi);
+                safeSetBadge('trend-pcr-signal', pcr.signal);
+                safeSetContent('trend-pcr-desc', pcr.interpretation);
+                
+                // Display PCR multi-timeframe changes if available
+                if (data.pcr_timeframe_changes) {
+                    const pcrChanges = data.pcr_timeframe_changes;
+                    
+                    // Define timeframe info
+                    const timeframes = ['1min', '2min', '5min', '10min'];
+                    
+                    timeframes.forEach(tf => {
+                        if (pcrChanges[tf]) {
+                            const tfData = pcrChanges[tf];
+                            
+                            const directionElem = document.getElementById(`pcr-${tf}-direction`);
+                            const valueElem = document.getElementById(`pcr-${tf}-value`);
+                            const percentElem = document.getElementById(`pcr-${tf}-percent`);
+                            const badgeElem = document.getElementById(`pcr-${tf}-badge`);
+                            
+                            if (directionElem && valueElem && percentElem && badgeElem) {
+                                if (tfData.pcr_change_direction === 'positive') {
+                                    directionElem.textContent = '📈';
+                                    directionElem.style.color = '#4CAF50';
+                                    valueElem.textContent = '+' + tfData.pcr_change.toFixed(4);
+                                    valueElem.style.color = '#4CAF50';
+                                    badgeElem.textContent = 'INCREASING';
+                                    badgeElem.style.color = '#4CAF50';
+                                } else if (tfData.pcr_change_direction === 'negative') {
+                                    directionElem.textContent = '📉';
+                                    directionElem.style.color = '#FF6B6B';
+                                    valueElem.textContent = tfData.pcr_change.toFixed(4);
+                                    valueElem.style.color = '#FF6B6B';
+                                    badgeElem.textContent = 'DECREASING';
+                                    badgeElem.style.color = '#FF6B6B';
+                                } else {
+                                    directionElem.textContent = '➡️';
+                                    directionElem.style.color = '#FFA500';
+                                    valueElem.textContent = '0.0000';
+                                    valueElem.style.color = '#FFA500';
+                                    badgeElem.textContent = 'NO CHANGE';
+                                    badgeElem.style.color = '#FFA500';
+                                }
+                                
+                                percentElem.textContent = tfData.pcr_change_percent.toFixed(2) + '%';
+                            }
+                        }
+                    });
+                    
+                    console.log('PCR multi-timeframe changes displayed:', pcrChanges);
+                }
+
+                const maxPain = data.max_pain_analysis;
+                safeSetContent('trend-max-pain', maxPain.max_pain_strike.toLocaleString());
+                safeSetBadge('trend-max-pain-signal', maxPain.signal);
+                safeSetContent('trend-max-pain-dist', maxPain.distance + ' pts');
+
+                const oi = data.oi_buildup_analysis;
+                safeSetContent('trend-oi', oi.call_writing > oi.put_writing ? 'Heavy CE' : 'Heavy PE');
+                safeSetBadge('trend-oi-signal', oi.signal);
+
+                const pressure = data.pressure_analysis;
+                safeSetContent('trend-pressure', pressure.net_pressure > 0 ? 'PE > CE' : 'CE > PE');
+                safeSetBadge('trend-pressure-signal', pressure.signal);
+
+                const iv = data.iv_analysis;
+                safeSetContent('trend-iv', iv.atm_iv + '%');
+                safeSetContent('trend-iv-signal', iv.signal);
+
+                const levels = data.support_resistance;
+                const resistanceElem = document.getElementById('trend-resistances');
+                if (resistanceElem) {
+                    resistanceElem.innerHTML = (levels.all_resistance || []).slice(0, 3).map((l, i) =>
+                        `<div class="list-item">
+                            <span class="list-label">R${i + 1}: ${l.toLocaleString()}</span>
+                        </div>`
+                    ).join('');
+                }
+
+                const supportsElem = document.getElementById('trend-supports');
+                if (supportsElem) {
+                    supportsElem.innerHTML = (levels.all_support || []).slice(0, 3).map((l, i) =>
+                        `<div class="list-item">
+                            <span class="list-label">S${i + 1}: ${l.toLocaleString()}</span>
+                        </div>`
+                    ).join('');
+                }
+                
+                console.log('Trend data displayed successfully');
+            } catch (e) {
+                console.error('Error in displayTrendData:', e);
+            }
+        }
+
+        function displayGreeksData(data) {
+            console.log('=== displayGreeksData called ===');
+            console.log('data:', data);
+            
+            // First, let's make sure the greeks content is visible
+            try {
+                const loadingDiv = document.getElementById('greeks-loading');
+                const contentDiv = document.getElementById('greeks-content');
+                
+                console.log('Found greeks-loading:', !!loadingDiv);
+                console.log('Found greeks-content:', !!contentDiv);
+                
+                if (!loadingDiv || !contentDiv) {
+                    console.error('Critical: Cannot find required HTML elements!');
+                    return;
+                }
+            } catch (e) {
+                console.error('Error accessing DOM elements:', e);
+                return;
+            }
+            
+            if (!data || !data.greeks_analysis) {
+                console.log('No greeks_analysis in data');
+                document.getElementById('greeks-loading').innerHTML = '<p>Greeks analysis not available</p>';
+                return;
+            }
+
+            console.log('Storing data in greeksData global variable');
+            greeksData = data;
+            const greeks = data.greeks_analysis;
+            
+            console.log('Greeks data:', greeks);
+            console.log('Greeks array:', greeks.greeks);
+            
+            if (!greeks.greeks || greeks.greeks.length === 0) {
+                console.log('Greeks data not available');
+                document.getElementById('greeks-loading').innerHTML = '<p>Greeks data not available</p>';
+                return;
+            }
+
+            console.log('Updating metric cards...');
+            document.getElementById('greeks-expiry').textContent = greeks.expiry_date || '-';
+            document.getElementById('greeks-days').textContent = (greeks.time_to_expiry_years * 365).toFixed(0) + ' days';
+
+            const atm = greeks.greeks[Math.floor(greeks.greeks.length / 2)];
+            console.log('ATM greek:', atm);
+            
+            if (atm && atm.ce && atm.pe) {
+                console.log('Updating ATM CE metrics');
+                
+                document.getElementById('greeks-ce-delta').textContent = parseFloat(atm.ce.delta).toFixed(3);
+                document.getElementById('greeks-ce-gamma').textContent = parseFloat(atm.ce.gamma).toFixed(6);
+                document.getElementById('greeks-ce-theta').textContent = parseFloat(atm.ce.theta).toFixed(2);
+                document.getElementById('greeks-ce-vega').textContent = parseFloat(atm.ce.vega).toFixed(2);
+                document.getElementById('greeks-ce-iv').textContent = atm.ce.iv + '%';
+                document.getElementById('greeks-ce-oi').textContent = (atm.ce.oi / 1000000).toFixed(2) + 'M';
+
+                console.log('Updating ATM PE metrics');
+                document.getElementById('greeks-pe-delta').textContent = parseFloat(atm.pe.delta).toFixed(3);
+                document.getElementById('greeks-pe-gamma').textContent = parseFloat(atm.pe.gamma).toFixed(6);
+                document.getElementById('greeks-pe-theta').textContent = parseFloat(atm.pe.theta).toFixed(2);
+                document.getElementById('greeks-pe-vega').textContent = parseFloat(atm.pe.vega).toFixed(2);
+                document.getElementById('greeks-pe-iv').textContent = atm.pe.iv + '%';
+                document.getElementById('greeks-pe-oi').textContent = (atm.pe.oi / 1000000).toFixed(2) + 'M';
+
+                const ratio = atm.pe.oi / atm.ce.oi;
+                document.getElementById('greeks-oi-ratio').textContent = ratio.toFixed(3);
+                
+                console.log('Metric cards updated successfully');
+            } else {
+                console.error('ATM greeks incomplete:', { atm, has_ce: atm && atm.ce, has_pe: atm && atm.pe });
+            }
+
+            // Render Greeks table
+            console.log('Creating column toggles...');
+            try {
+                createGreeksColumnToggles();
+                console.log('Column toggles created successfully');
+            } catch (e) {
+                console.error('Error creating column toggles:', e);
+            }
+            
+            console.log('Rendering Greeks table...');
+            try {
+                renderGreeksTable(greeksData);
+                console.log('Greeks table rendered');
+            } catch (e) {
+                console.error('Error rendering Greeks table:', e);
+            }
+
+            console.log('Hiding loading spinner and showing content');
+            try {
+                document.getElementById('greeks-loading').style.display = 'none';
+                const contentDiv = document.getElementById('greeks-content');
+                contentDiv.classList.remove('hidden');
+                console.log('Content div visibility toggled');
+            } catch (e) {
+                console.error('Error showing content:', e);
+            }
+            
+            console.log('displayGreeksData completed');
+        }
+
+        // Options Chain Columns
+        const optionsColumnLabels = {
+            'strike': 'Strike',
+            'ce_ltp': 'CE LTP',
+            'ce_spot_distance': 'CE Spot Dist',
+            'ce_spot_distance_pct': 'CE Dist %',
+            'ce_oi': 'CE OI',
+            'ce_iv': 'CE IV',
+            'ce_chg': 'CE Chg',
+            'pe_chg': 'PE Chg',
+            'pe_ltp': 'PE LTP',
+            'pe_spot_distance': 'PE Spot Dist',
+            'pe_spot_distance_pct': 'PE Dist %',
+            'pe_iv': 'PE IV',
+            'pe_oi': 'PE OI',
+            'ce_buildup_type': 'CE Buildup',
+            'pe_buildup_type': 'PE Buildup'
+        };
+
+        let optionsColumnOrder = Object.keys(optionsColumnLabels);
+        let optionsSelectedColumns = new Set(optionsColumnOrder);
+
+        function createOptionsColumnToggles() {
+            const container = document.getElementById('options-column-toggles');
+            container.innerHTML = '';
+            optionsColumnOrder.forEach(key => {
+                const label = document.createElement('label');
+                label.style.background = 'rgba(0, 191, 255, 0.15)';
+                label.style.padding = '4px 8px';
+                label.style.borderRadius = '4px';
+                label.style.fontSize = '11px';
+                label.style.border = '1px solid var(--border)';
+                label.style.cursor = 'pointer';
+                label.innerHTML = `<input type="checkbox" ${optionsSelectedColumns.has(key) ? 'checked' : ''} onchange="toggleOptionsColumn('${key}')" style="margin-right: 4px;"> ${optionsColumnLabels[key]}`;
+                container.appendChild(label);
+            });
+        }
+
+        function toggleOptionsColumn(key) {
+            if (optionsSelectedColumns.has(key)) {
+                optionsSelectedColumns.delete(key);
+            } else {
+                optionsSelectedColumns.add(key);
+            }
+            renderOptionsTable();
+        }
+
+        function renderOptionsTable() {
+            if (!currentData || !currentData.rows) return;
+            const visibleOrder = optionsColumnOrder.filter(key => optionsSelectedColumns.has(key));
+            const thead = document.getElementById('options-table-head');
+            thead.innerHTML = '<tr>' + visibleOrder.map(key => `<th>${optionsColumnLabels[key]}</th>`).join('') + '</tr>';
+
+            const tbody = document.getElementById('options-table-body');
+            tbody.innerHTML = currentData.rows.map(row => {
+                return '<tr>' + visibleOrder.map(key => {
+                    let val = row[key] ?? '--';
+                    let color = '';
+                    if (key === 'strike') {
+                        color = 'font-weight: bold; color: var(--accent);';
+                    } else if (['ce_chg', 'pe_chg'].includes(key)) {
+                        const num = parseFloat(String(val).replace('%', ''));
+                        if (!isNaN(num)) {
+                            color = num > 0 ? 'color: #4CAF50;' : num < 0 ? 'color: #FF6B6B;' : '';
+                        }
+                    } else if (['ce_buildup_type', 'pe_buildup_type'].includes(key)) {
+                        // Color code buildup types
+                        // Green: Put Long Cover, Put Writing, Call Short Cover, Call Buying
+                        // Red: Call Long Cover, Call Writing, Put Short Cover, Put Buying
+                        const greenTypes = ['Put Long Cover', 'Put Writing', 'Call Short Cover', 'Call Buying'];
+                        const redTypes = ['Call Long Cover', 'Call Writing', 'Put Short Cover', 'Put Buying'];
+                        
+                        if (greenTypes.includes(val)) {
+                            color = 'color: #4CAF50; font-weight: bold;';
+                        } else if (redTypes.includes(val)) {
+                            color = 'color: #FF6B6B; font-weight: bold;';
+                        } else if (val !== '--' && val !== 'Neutral') {
+                            color = 'color: #FFA500; font-weight: bold;';
+                        }
+                    }
+                    return `<td style="${color}">${val}</td>`;
+                }).join('') + '</tr>';
+            }).join('');
+        }
+
+        // Greeks Table Columns
+        const greeksColumnLabels = {
+            'strike': 'Strike',
+            'ce_delta': 'CE Δ',
+            'ce_gamma': 'CE Γ',
+            'ce_theta': 'CE Θ',
+            'pe_delta': 'PE Δ',
+            'pe_gamma': 'PE Γ',
+            'pe_theta': 'PE Θ',
+            'ce_oi': 'CE OI',
+            'pe_oi': 'PE OI'
+        };
+
+        let greeksColumnOrder = Object.keys(greeksColumnLabels);
+        let greeksSelectedColumns = new Set(greeksColumnOrder);
+
+        function createGreeksColumnToggles() {
+            const container = document.getElementById('greeks-column-toggles');
+            container.innerHTML = '';
+            greeksColumnOrder.forEach(key => {
+                const label = document.createElement('label');
+                label.style.background = 'rgba(0, 191, 255, 0.15)';
+                label.style.padding = '4px 8px';
+                label.style.borderRadius = '4px';
+                label.style.fontSize = '11px';
+                label.style.border = '1px solid var(--border)';
+                label.style.cursor = 'pointer';
+                label.innerHTML = `<input type="checkbox" ${greeksSelectedColumns.has(key) ? 'checked' : ''} onchange="toggleGreeksColumn('${key}')" style="margin-right: 4px;"> ${greeksColumnLabels[key]}`;
+                container.appendChild(label);
+            });
+        }
+
+        function toggleGreeksColumn(key) {
+            if (greeksSelectedColumns.has(key)) {
+                greeksSelectedColumns.delete(key);
+            } else {
+                greeksSelectedColumns.add(key);
+            }
+            renderGreeksTable();
+        }
+
+        function renderGreeksTable(data = null) {
+            console.log('=== renderGreeksTable called ===');
+            console.log('data parameter:', data);
+            console.log('greeksData:', greeksData);
+            
+            const dataToUse = data || greeksData;
+            console.log('dataToUse:', dataToUse);
+            
+            if (!dataToUse) {
+                console.error('Cannot render Greeks table - no dataToUse available');
+                return;
+            }
+            
+            if (!dataToUse.greeks_analysis) {
+                console.error('Cannot render Greeks table - no greeks_analysis in dataToUse');
+                return;
+            }
+            
+            if (!dataToUse.greeks_analysis.greeks) {
+                console.error('Cannot render Greeks table - no greeks array in greeks_analysis', dataToUse.greeks_analysis);
+                return;
+            }
+            
+            const greeksArray = dataToUse.greeks_analysis.greeks;
+            console.log('Greeks array length:', greeksArray.length);
+            console.log('First greek:', greeksArray[0]);
+            
+            const visibleOrder = greeksColumnOrder.filter(key => greeksSelectedColumns.has(key));
+            console.log('visibleOrder:', visibleOrder);
+            
+            const thead = document.getElementById('greeks-table-head');
+            console.log('thead element:', thead);
+            
+            if (!thead) {
+                console.error('Cannot find thead element with id greeks-table-head');
+                return;
+            }
+            
+            const tbody = document.getElementById('greeks-table-body');
+            console.log('tbody element:', tbody);
+            
+            if (!tbody) {
+                console.error('Cannot find tbody element with id greeks-table-body');
+                return;
+            }
+            
+            // Render header
+            const headerHTML = '<tr>' + visibleOrder.map(key => `<th>${greeksColumnLabels[key]}</th>`).join('') + '</tr>';
+            console.log('Setting header HTML');
+            thead.innerHTML = headerHTML;
+            
+            // Render rows
+            console.log('Rendering', greeksArray.length, 'data rows');
+            const rowsHTML = greeksArray.map((row, idx) => {
+                const cells = visibleOrder.map(key => {
+                    let val = '--';
+                    try {
+                        if (key === 'strike') {
+                            val = row.strike;
+                        } else if (key.startsWith('ce_')) {
+                            const field = key.replace('ce_', '');
+                            if (row.ce && row.ce[field] !== undefined) {
+                                val = row.ce[field];
+                                if (['delta', 'gamma', 'theta'].includes(field)) val = parseFloat(val).toFixed(3);
+                            }
+                        } else if (key.startsWith('pe_')) {
+                            const field = key.replace('pe_', '');
+                            if (row.pe && row.pe[field] !== undefined) {
+                                val = row.pe[field];
+                                if (['delta', 'gamma', 'theta'].includes(field)) val = parseFloat(val).toFixed(3);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error rendering cell for key', key, 'in row', idx, ':', e);
+                    }
+                    let color = '';
+                    if (key === 'strike') {
+                        color = 'font-weight: bold; color: var(--accent);';
+                    }
+                    return `<td style="${color}">${val}</td>`;
+                }).join('');
+                return '<tr>' + cells + '</tr>';
+            }).join('');
+            
+            console.log('Setting body HTML with', greeksArray.length, 'rows');
+            tbody.innerHTML = rowsHTML;
+            console.log('Greeks table rendered successfully');
+        }
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            // Request analysis data on connection
+            socket.emit('request_analysis');
+        });
+
+        socket.on('analysis_data', (data) => {
+            console.log('=== SOCKET RECEIVED analysis_data ===');
+            console.log('Data keys:', Object.keys(data));
+            console.log('greeks_analysis exists?', !!data.greeks_analysis);
+            if (data.greeks_analysis) {
+                console.log('greeks_analysis keys:', Object.keys(data.greeks_analysis));
+                console.log('greeks array exists?', !!data.greeks_analysis.greeks);
+                console.log('greeks array length:', data.greeks_analysis.greeks ? data.greeks_analysis.greeks.length : 'N/A');
+            }
+            console.log('Calling displayGreeksData...');
+            
+            currentData = data;
+            displayOptionsData(data);
+            displayTrendData(data);
+            displayGreeksData(data);
+            
+            console.log('All display functions called');
+        });
+
+        socket.on('current_expiry', (data) => {
+            const parts = data.expiry.split('-');
+            const monthMap = { 'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12' };
+            document.getElementById('expiryInput').value = `${parts[2]}-${monthMap[parts[1]]}-${parts[0]}`;
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStocksData();
+        });
+    </script>
+</body>
+</html>

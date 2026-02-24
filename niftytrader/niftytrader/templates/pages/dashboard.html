@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NiftyTrader{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <header class="dashboard-header">
+        <h1>📊 Nifty 50 Dashboard</h1>
+        <p class="last-update">Last Updated: <span id="updateTime">--:--:--</span></p>
+    </header>
+
+    <!-- Market Overview -->
+    <section class="market-overview">
+        <h2>Market Overview</h2>
+        <div class="overview-grid">
+            <div class="overview-card">
+                <h3>Market Trend</h3>
+                <p class="trend-badge" id="marketTrend">Loading...</p>
+            </div>
+            <div class="overview-card">
+                <h3>Average Change</h3>
+                <p class="trend-value" id="avgChange">--</p>
+            </div>
+            <div class="overview-card">
+                <h3>Advancers / Decliners</h3>
+                <p class="trend-value" id="advDec">-/-</p>
+            </div>
+            <div class="overview-card">
+                <h3>Bull / Bear Power</h3>
+                <p class="trend-value" id="bullBear">--/--</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Major Movers -->
+    <section class="major-movers">
+        <h2>🔥 Top Movers</h2>
+        <table class="movers-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>Change</th>
+                    <th>% Change</th>
+                    <th>Weight %</th>
+                </tr>
+            </thead>
+            <tbody id="moversBody">
+                <tr><td colspan="5" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Stock List -->
+    <section class="stock-list">
+        <header class="section-header">
+            <h2>📈 All Nifty 50 Stocks</h2>
+            <div class="controls">
+                <input type="text" id="searchInput" class="search-box" placeholder="Search stocks...">
+                <select id="sortBy" class="sort-select">
+                    <option value="change">Sort by Change</option>
+                    <option value="weight">Sort by Weight</option>
+                    <option value="name">Sort by Name</option>
+                </select>
+            </div>
+        </header>
+
+        <table class="stocks-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>Change</th>
+                    <th>% Change</th>
+                    <th>Weight %</th>
+                    <th>Volume</th>
+                </tr>
+            </thead>
+            <tbody id="stocksBody">
+                <tr><td colspan="6" class="loading">Loading stock data...</td></tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

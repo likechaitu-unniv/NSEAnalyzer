@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Trends Analysis - NiftyTrader{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trends.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="trends-container">
+    <header class="trends-header">
+        <h1>📈 Market Trends Analysis</h1>
+        <div class="expiry-control">
+            <label for="expirySelect">Expiry Date:</label>
+            <select id="expirySelect" class="expiry-select">
+                <option value="17-Feb-2026">17-Feb-2026</option>
+                <option value="24-Feb-2026">24-Feb-2026</option>
+                <option value="03-Mar-2026">03-Mar-2026</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Analysis Summary -->
+    <section class="analysis-summary">
+        <h2>Current Analysis</h2>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <h3>Market Signal</h3>
+                <p class="signal-value" id="marketSignal">Loading...</p>
+            </div>
+            <div class="summary-card">
+                <h3>PCR Value</h3>
+                <p class="pcr-value" id="pcrValue">--</p>
+            </div>
+            <div class="summary-card">
+                <h3>Support Level</h3>
+                <p class="level-value" id="supportLevel">--</p>
+            </div>
+            <div class="summary-card">
+                <h3>Resistance Level</h3>
+                <p class="level-value" id="resistanceLevel">--</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Analysis Tabs -->
+    <section class="analysis-section">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="oi">Open Interest</button>
+            <button class="tab-btn" data-tab="pcr">PCR Analysis</button>
+            <button class="tab-btn" data-tab="chart">Chart</button>
+        </div>
+
+        <!-- Open Interest Tab -->
+        <div id="oi" class="tab-content active">
+            <h3>Open Interest Analysis</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Strike</th>
+                        <th>Call OI</th>
+                        <th>Put OI</th>
+                        <th>Difference</th>
+                    </tr>
+                </thead>
+                <tbody id="oiBody">
+                    <tr><td colspan="4" class="loading">Loading OI data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PCR Analysis Tab -->
+        <div id="pcr" class="tab-content">
+            <h3>Put-Call Ratio Analysis</h3>
+            <div class="pcr-details">
+                <p><strong>PCR OI:</strong> <span id="pcrOI">--</span></p>
+                <p><strong>PCR Volume:</strong> <span id="pcrVol">--</span></p>
+                <p><strong>Interpretation:</strong> <span id="pcrInterpret">--</span></p>
+            </div>
+        </div>
+
+        <!-- Chart Tab -->
+        <div id="chart" class="tab-content">
+            <h3>Trend Chart</h3>
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <!-- History -->
+    <section class="history-section">
+        <h2>Historical Trends</h2>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Signal</th>
+                    <th>PCR</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody">
+                <tr><td colspan="4" class="loading">Loading history...</td></tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/trends.js') }}"></script>
+{% endblock %}

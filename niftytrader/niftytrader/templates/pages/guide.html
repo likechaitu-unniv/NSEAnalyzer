@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Guide & Help - NiftyTrader{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guide.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="guide-container">
+    <header class="guide-header">
+        <h1>📚 Help & Learning Guide</h1>
+        <p>Understand market analysis concepts and how to use NiftyTrader</p>
+    </header>
+
+    <div class="guide-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="guide-sidebar">
+            <nav class="guide-nav">
+                <button class="nav-btn active" data-section="getting-started">Getting Started</button>
+                <button class="nav-btn" data-section="dashboard-guide">Dashboard Guide</button>
+                <button class="nav-btn" data-section="trends-guide">Trends Analysis</button>
+                <button class="nav-btn" data-section="glossary">Glossary</button>
+                <button class="nav-btn" data-section="faq">FAQ</button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="guide-content">
+            <!-- Getting Started -->
+            <section id="getting-started" class="guide-section active">
+                <h2>Getting Started with NiftyTrader</h2>
+                <p>Welcome to NiftyTrader! This guide will help you get started with our market analysis dashboard.</p>
+                
+                <h3>What is NiftyTrader?</h3>
+                <p>NiftyTrader is an advanced dashboard for analyzing Nifty 50 stocks and market trends with real-time data.</p>
+                
+                <h3>Key Sections</h3>
+                <ul>
+                    <li><strong>Dashboard:</strong> Real-time stock data for all Nifty 50 companies</li>
+                    <li><strong>Trends:</strong> Technical analysis and market sentiment</li>
+                    <li><strong>Guide:</strong> Educational resources and tools</li>
+                </ul>
+            </section>
+
+            <!-- Dashboard Guide -->
+            <section id="dashboard-guide" class="guide-section">
+                <h2>Dashboard Guide</h2>
+                <p>Learn how to navigate and interpret the stock dashboard.</p>
+                
+                <h3>Market Overview Cards</h3>
+                <p>At the top of the dashboard, you'll see four key metrics:</p>
+                <ul>
+                    <li><strong>Market Trend:</strong> Overall market direction (Bullish/Bearish)</li>
+                    <li><strong>Average Change:</strong> Average percentage change across stocks</li>
+                    <li><strong>Advancers/Decliners:</strong> Number of up vs down stocks</li>
+                    <li><strong>Bull/Bear Power:</strong> Weighted strength of bulls vs bears</li>
+                </ul>
+                
+                <h3>Stock Table</h3>
+                <p>The main table shows all Nifty 50 stocks with:</p>
+                <ul>
+                    <li><strong>Symbol:</strong> Stock ticker</li>
+                    <li><strong>Price:</strong> Current market price</li>
+                    <li><strong>Change:</strong> Absolute change in points</li>
+                    <li><strong>% Change:</strong> Percentage change</li>
+                    <li><strong>Weight:</strong> Stock's weight in the index</li>
+                    <li><strong>Volume:</strong> Trading volume</li>
+                </ul>
+            </section>
+
+            <!-- Trends Guide -->
+            <section id="trends-guide" class="guide-section">
+                <h2>Trends Analysis Guide</h2>
+                <p>Understanding market trends is crucial for making informed trading decisions.</p>
+                
+                <h3>Analysis Metrics</h3>
+                <ul>
+                    <li><strong>Market Signal:</strong> Composite signal (Bullish/Bearish/Neutral)</li>
+                    <li><strong>PCR:</strong> Put-Call Ratio indicator of sentiment</li>
+                    <li><strong>Support/Resistance:</strong> Key price levels</li>
+                    <li><strong>Open Interest:</strong> Market depth indicator</li>
+                </ul>
+                
+                <h3>How to Use</h3>
+                <ol>
+                    <li>Select an expiry date</li>
+                    <li>Review the current signal</li>
+                    <li>Check support and resistance levels</li>
+                    <li>Compare with historical trends</li>
+                </ol>
+            </section>
+
+            <!-- Glossary -->
+            <section id="glossary" class="guide-section">
+                <h2>Trading Glossary</h2>
+                
+                <div class="glossary-group">
+                    <h3>Key Terms</h3>
+                    
+                    <div class="glossary-item">
+                        <h4>PCR (Put-Call Ratio)</h4>
+                        <p>The ratio of put options to call options. High PCR indicates bearish sentiment, low PCR indicates bullish sentiment.</p>
+                    </div>
+                    
+                    <div class="glossary-item">
+                        <h4>OI (Open Interest)</h4>
+                        <p>The total number of outstanding derivative contracts. Indicates market participation and liquidity.</p>
+                    </div>
+                    
+                    <div class="glossary-item">
+                        <h4>IV (Implied Volatility)</h4>
+                        <p>Market expectation of volatility. Higher IV means market expects larger price swings.</p>
+                    </div>
+                    
+                    <div class="glossary-item">
+                        <h4>Support Level</h4>
+                        <p>Price level where buying interest emerges, preventing further price decline.</p>
+                    </div>
+                    
+                    <div class="glossary-item">
+                        <h4>Resistance Level</h4>
+                        <p>Price level where selling interest emerges, preventing further price rise.</p>
+                    </div>
+                    
+                    <div class="glossary-item">
+                        <h4>Market Breadth</h4>
+                        <p>Number of advancing stocks vs declining stocks. Confirms trend strength.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section id="faq" class="guide-section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <h4>What is Nifty 50?</h4>
+                    <p>Nifty 50 is a benchmark index of 50 large-cap Indian companies listed on NSE. It represents the Indian stock market.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h4>How often is data updated?</h4>
+                    <p>Data updates in real-time during market hours (9:15 AM - 3:30 PM IST on weekdays). Outside market hours, data represents the last available market close.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h4>What do the colors represent?</h4>
+                    <p>Green indicates positive change/bullish movement. Red indicates negative change/bearish movement. Grey indicates neutral or no change.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h4>Is this investment advice?</h4>
+                    <p>No. NiftyTrader is for educational and informational purposes only. Always consult with a licensed financial advisor before making investment decisions.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h4>Can I trade based on these signals?</h4>
+                    <p>The signals are analytical tools. Do your own research and risk management before trading. These signals are not guaranteed predictions of future price movements.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/guide.js') }}"></script>
+{% endblock %}

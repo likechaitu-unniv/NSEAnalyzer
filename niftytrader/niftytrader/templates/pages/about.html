@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}About - NiftyTrader{% endblock %}
+
+{% block content %}
+<div class="about-container">
+    <header class="about-header">
+        <h1>About NiftyTrader</h1>
+        <p>Advanced Market Analysis Dashboard for Nifty 50</p>
+    </header>
+
+    <section class="about-section">
+        <h2>What is NiftyTrader?</h2>
+        <p>
+            NiftyTrader is an advanced market analysis dashboard designed to provide comprehensive insights 
+            into the Nifty 50 index. It combines real-time market data with technical analysis tools to help 
+            traders and investors make informed decisions.
+        </p>
+    </section>
+
+    <section class="about-section">
+        <h2>Our Features</h2>
+        <ul class="features-list">
+            <li><strong>Real-time Stock Data:</strong> Live price feeds for all Nifty 50 stocks</li>
+            <li><strong>Trend Analysis:</strong> Technical analysis using option chain data</li>
+            <li><strong>Major Movers:</strong> Identify stocks with highest market impact</li>
+            <li><strong>Market Sentiment:</strong> Composite analysis of market trends</li>
+            <li><strong>Educational Resources:</strong> Guides and glossary for learning</li>
+            <li><strong>Multi-page Interface:</strong> Clean and intuitive user experience</li>
+        </ul>
+    </section>
+
+    <section class="about-section">
+        <h2>Technology Stack</h2>
+        <ul class="tech-stack">
+            <li><strong>Backend:</strong> Flask, Python</li>
+            <li><strong>Frontend:</strong> HTML5, CSS3, JavaScript</li>
+            <li><strong>Data Processing:</strong> Pandas, NumPy, SciPy</li>
+            <li><strong>Real-time Communication:</strong> Flask-SocketIO</li>
+            <li><strong>Data Source:</strong> NSE (National Stock Exchange) API</li>
+        </ul>
+    </section>
+
+    <section class="about-section">
+        <h2>Disclaimer</h2>
+        <p class="disclaimer">
+            NiftyTrader is provided for educational and informational purposes only. The data and analysis 
+            provided are not investment advice. Always conduct your own research and consult with a licensed 
+            financial advisor before making any investment decisions. Past performance is not indicative of 
+            future results.
+        </p>
+    </section>
+
+    <section class="about-section">
+        <h2>Contact & Support</h2>
+        <p>
+            For questions, feedback, or support, please visit our guide section or contact support through 
+            the help page.
+        </p>
+        <a href="{{ url_for('guide.index') }}" class="btn btn-primary">Visit Guide</a>
+    </section>
+</div>
+{% endblock %}
