@@ -16,6 +16,83 @@ NSE_HEADERS = {
 }
 
 
+def fetch_india_vix():
+    """Fetch India VIX using multiple fallbacks.
+    Primary: Yahoo Finance quote API for ^INDIAVIX.
+    Fallbacks: attempt to scrape NSE pages if Yahoo fails.
+    Returns float value or None on failure.
+    """
+    # 1) Try Yahoo Finance API (use a friendly user-agent)
+    yahoo_url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EINDIAVIX"
+    try:
+        print(f"[DEBUG] fetch_india_vix: trying Yahoo API: {yahoo_url}")
+        r = session.get(yahoo_url, headers=NSE_HEADERS, timeout=8)
+        if r.status_code == 200:
+            data = r.json()
+            q = data.get('quoteResponse', {}).get('result', [])
+            if q and isinstance(q, list):
+                val = q[0].get('regularMarketPrice') or q[0].get('regularMarketPreviousClose')
+                if val is not None:
+                    print(f"[DEBUG] fetch_india_vix: Yahoo returned {val}")
+                    try:
+                        return float(val)
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(f"[WARN] fetch_india_vix: Yahoo API failed: {e}")
+
+    # 2) Try NSE India index API: prefetch homepage to establish cookies then call index API
+    nse_index_api = "https://www.nseindia.com/api/quote-index?index=india-vix"
+    try:
+        print(f"[DEBUG] fetch_india_vix: prefetching NSE homepage to set cookies")
+        session.get("https://www.nseindia.com", headers=NSE_HEADERS, timeout=6)
+    except Exception as e:
+        print(f"[WARN] fetch_india_vix: NSE homepage prefetch failed: {e}")
+
+    try:
+        print(f"[DEBUG] fetch_india_vix: trying NSE index API: {nse_index_api}")
+        r = session.get(nse_index_api, headers=NSE_HEADERS, timeout=8)
+        if r.status_code == 200:
+            try:
+                data = r.json()
+            except Exception:
+                data = None
+
+            val = None
+            if isinstance(data, dict):
+                # Try multiple common keys
+                val = (data.get('index', {}) or {}).get('last') or data.get('last') or data.get('price') or (data.get('data') and data.get('data').get('last'))
+            if val is not None:
+                try:
+                    return float(val)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[WARN] fetch_india_vix: NSE API attempt failed: {e}")
+
+    # 3) Give up gracefully
+    # 3) Fallback: try scraping Yahoo Finance page HTML for the value
+    try:
+        yahoo_html = "https://finance.yahoo.com/quote/%5EINDIAVIX?p=%5EINDIAVIX"
+        print(f"[DEBUG] fetch_india_vix: trying Yahoo HTML fallback: {yahoo_html}")
+        r = session.get(yahoo_html, headers=NSE_HEADERS, timeout=8)
+        if r.status_code == 200 and r.text:
+            import re
+            m = re.search(r'"regularMarketPrice"\s*:\s*\{\s*"raw"\s*:\s*([0-9]+\.?[0-9]*)', r.text)
+            if m:
+                try:
+                    val = float(m.group(1))
+                    print(f"[DEBUG] fetch_india_vix: parsed Yahoo HTML value {val}")
+                    return val
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[WARN] fetch_india_vix: Yahoo HTML fallback failed: {e}")
+
+    print('[DEBUG] fetch_india_vix: all methods failed, returning None')
+    return None
+
+
 def fetch_nifty_option_chain(exp_date, symbol = "NIFTY"):
     print(f"[DEBUG] fetch_nifty_option_chain() called: exp_date={exp_date}, symbol={symbol}")
     print("Getting Data for :", exp_date)
@@ -35,6 +112,32 @@ def fetch_nifty_option_chain(exp_date, symbol = "NIFTY"):
         raise RuntimeError("NSE response missing 'records' or 'data' – possibly blocked or HTML returned")
 
     return data
+
+
+def fetch_available_expiries(symbol="NIFTY"):
+    """Fetch available expiry dates from NSE option-chain API for given symbol.
+    Returns list of expiry strings as provided by NSE (e.g. '01-Mar-2026').
+    """
+    print(f"[DEBUG] fetch_available_expiries() called for symbol={symbol}")
+    home_url = "https://www.nseindia.com"
+    url = home_url + f"/api/option-chain-v3?type=Indices&symbol={symbol}&expiry=01-Mar-2020"
+    try:
+        # prefetch homepage to set cookies
+        session.get(home_url, headers=NSE_HEADERS, timeout=6)
+    except Exception as e:
+        print(f"[WARN] prefetch homepage failed: {e}")
+    try:
+        r = session.get(url, headers=NSE_HEADERS, timeout=6)
+        if r.status_code != 200:
+            print(f"[WARN] expiry list request returned status {r.status_code}")
+            return []
+        data = r.json()
+        expiries = data.get('records', {}).get('expiryDates', [])
+        print(f"[DEBUG] fetched expiries: {expiries}")
+        return expiries if isinstance(expiries, list) else []
+    except Exception as e:
+        print(f"[ERROR] fetch_available_expiries failed: {e}")
+        return []
 
 
 def derive_pcr(chain):

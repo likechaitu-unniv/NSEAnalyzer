@@ -7,6 +7,8 @@ from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from Analyzer import NiftyTrendAnalyzer, fetch_nifty_option_chain
 from trend_storage import TrendStorage
+from utils import fetch_india_vix, fetch_available_expiries
+from utils import fetch_nifty_option_chain
 import threading
 import time
 import requests
@@ -17,10 +19,39 @@ print("[DEBUG] apps.py module loaded")
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-# Global expiry variable for options
-expiry = '24-Feb-2026'
+# Global expiry variable for options (will attempt to auto-select from NSE)
+default_expiry = '23-Feb-2026'
+expiry = default_expiry
 
-# Initialize trend storage with current expiry
+# Attempt to read valid expiries from NSE and pick an appropriate one
+try:
+    expiries = fetch_available_expiries('NIFTY')
+    from datetime import datetime, date
+    parsed = []
+    for s in expiries:
+        try:
+            d = datetime.strptime(s, "%d-%b-%Y").date()
+            parsed.append((d, s))
+        except Exception:
+            # skip unparsable formats
+            continue
+
+    today = date.today()
+    future = [ (d,s) for (d,s) in parsed if d >= today ]
+    if future:
+        # pick the nearest future expiry
+        expiry = sorted(future, key=lambda x: x[0])[0][1]
+        print(f"[DEBUG] Selected expiry from NSE (nearest future): {expiry}")
+    elif parsed:
+        # fallback: pick latest available
+        expiry = sorted(parsed, key=lambda x: x[0])[-1][1]
+        print(f"[DEBUG] Selected expiry from NSE (latest available): {expiry}")
+    else:
+        print(f"[WARN] No valid expiry parsed from NSE response, using default {default_expiry}")
+except Exception as e:
+    print(f"[WARN] Could not fetch expiries from NSE: {e}; using default {default_expiry}")
+
+# Initialize trend storage with chosen expiry
 trend_storage = TrendStorage(expiry=expiry)
 
 
@@ -419,6 +450,63 @@ def api_analyze_options():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/pcr-by-expiry')
+def api_pcr_by_expiry():
+        """Return PCR summary for all available expiries for NIFTY.
+        Each item: { expiry: str, overall_pcr: float, pcr_plusminus_5: float }
+        """
+        try:
+            expiries = fetch_available_expiries('NIFTY')
+            out = []
+            for exp in expiries:
+                try:
+                    chain = fetch_nifty_option_chain(exp)
+                    records = chain.get('records', {})
+                    rows = records.get('data', [])
+                    spot_raw = records.get('underlyingValue') or records.get('underlying_value') or 0
+                    try:
+                        spot = float(str(spot_raw).replace(',', ''))
+                    except Exception:
+                        spot = 0
+
+                    # collect unique strikes
+                    strikes = sorted(list({ r.get('strikePrice') for r in rows if r.get('strikePrice') is not None }))
+                    # overall PCR
+                    total_call_oi = 0
+                    total_put_oi = 0
+                    for r in rows:
+                        ce = r.get('CE', {})
+                        pe = r.get('PE', {})
+                        total_call_oi += ce.get('openInterest', 0)
+                        total_put_oi += pe.get('openInterest', 0)
+                    overall_pcr = round((total_put_oi / total_call_oi), 3) if total_call_oi else None
+
+                    # find nearest strike to spot and compute +/-5 strikes window
+                    pcr_window = None
+                    if strikes and spot:
+                        nearest = min(strikes, key=lambda s: abs(s - spot))
+                        idx = strikes.index(nearest)
+                        low = max(0, idx - 5)
+                        high = min(len(strikes) - 1, idx + 5)
+                        selected = set(strikes[low:high+1])
+                        sel_call = 0
+                        sel_put = 0
+                        for r in rows:
+                            if r.get('strikePrice') in selected:
+                                sel_call += r.get('CE', {}).get('openInterest', 0)
+                                sel_put += r.get('PE', {}).get('openInterest', 0)
+                        pcr_window = round((sel_put / sel_call), 3) if sel_call else None
+
+                    out.append({ 'expiry': exp, 'overall_pcr': overall_pcr, 'pcr_plusminus_5': pcr_window })
+                except Exception as e:
+                    print(f"Error fetching/processing expiry {exp}: {e}")
+                    out.append({ 'expiry': exp, 'overall_pcr': None, 'pcr_plusminus_5': None })
+
+            return jsonify(out)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/get-trends')
 def api_get_trends():
     """API endpoint to get trend data"""
@@ -446,6 +534,16 @@ def api_get_trends():
             'statistics': statistics,
             'expiry': request_expiry
         }
+        print(f"[DEBUG] Base response prepared, attempting to fetch India VIX")
+        # Try to include India VIX in statistics (best-effort)
+        try:
+            vix_val = fetch_india_vix()
+            if vix_val is not None:
+                # attach to statistics for client use
+                response['statistics']['vix'] = vix_val
+                print( f"[DEBUG] Included India VIX in response: {vix_val}")
+        except Exception as e:
+            print(f"[WARN] Could not fetch India VIX: {e}")
         print(f"[DEBUG] Response ready, returning success")
         return jsonify(response)
     except Exception as e:

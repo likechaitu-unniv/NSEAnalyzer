@@ -13,6 +13,8 @@
             box-sizing: border-box;
         }
 
+        
+
         :root {
             --dark-bg: #1a1f3a;
             --card-bg: #252d4a;
@@ -24,6 +26,32 @@
             --text-secondary: #b0b8d4;
             --border: #3a4563;
         }
+
+        /* Gamma blast color coding */
+        .gamma-blast { padding: 3px 6px; border-radius: 4px; display: inline-block; }
+        .gamma-low { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+        .gamma-medium { background: rgba(255,165,0,0.06); color: var(--warning); }
+        .gamma-high { background: rgba(255,107,107,0.08); color: var(--danger); }
+        .gamma-extreme { background: rgba(0,191,255,0.08); color: var(--accent); font-weight: 700; }
+
+        /* Generic Greek color classes (reuse gamma palette) */
+        .greek-blast { padding: 3px 6px; border-radius: 4px; display: inline-block; }
+        .greek-low { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+        .greek-medium { background: rgba(255,165,0,0.06); color: var(--warning); }
+        .greek-high { background: rgba(255,107,107,0.08); color: var(--danger); }
+        .greek-extreme { background: rgba(0,191,255,0.08); color: var(--accent); font-weight: 700; }
+
+        /* Delta sign-aware classes */
+        .delta-pos { color: #4CAF50; }
+        .delta-pos.greek-low { background: rgba(76,175,80,0.06); }
+        .delta-pos.greek-medium { background: rgba(76,175,80,0.10); font-weight:700; }
+        .delta-neg { color: #FF6B6B; }
+        .delta-neg.greek-low { background: rgba(255,107,107,0.04); }
+        .delta-neg.greek-medium { background: rgba(255,107,107,0.08); font-weight:700; }
+        .delta-neutral { color: var(--text-secondary); }
+
+        /* Recommended strike highlight */
+        .recommended { font-weight: 800; border-radius: 4px; padding: 2px 6px; background: rgba(0,191,255,0.06); color: var(--accent); }
 
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -478,6 +506,22 @@
             background: rgba(0, 191, 255, 0.05);
         }
 
+        /* PCR specific compact tweaks */
+        .pcr-compact th, .pcr-compact td {
+            padding: 4px 6px;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+
+        .pcr-compact th { font-weight:700; color: var(--text-secondary); background: transparent; }
+        .pcr-compact td { color: var(--text-secondary); text-align: center; }
+        .pcr-compact td:first-child { text-align: left; color: var(--text-primary); font-weight:600; }
+
+        /* PCR color rules: <=0.7 -> red, >1.2 -> green, else orange */
+        .pcr-low { color: #FF6B6B; background: rgba(255,107,107,0.04); font-weight:700; border-radius:4px; padding:2px 6px; }
+        .pcr-neutral { color: #FFA500; background: rgba(255,165,0,0.04); font-weight:600; border-radius:4px; padding:2px 6px; }
+        .pcr-high { color: #4CAF50; background: rgba(76,175,80,0.04); font-weight:700; border-radius:4px; padding:2px 6px; }
+
         .loading {
             text-align: center;
             padding: 40px 20px;
@@ -661,6 +705,49 @@
     </style>
 
     </style>
+
+    <script>
+    async function fetchAndRenderPcrByExpiry() {
+        try {
+            const res = await fetch('/api/pcr-by-expiry');
+            if (!res.ok) throw new Error('Network response not ok');
+            const arr = await res.json();
+            const tbody = document.getElementById('pcr-expiries-body');
+            if (!tbody) return;
+            if (!Array.isArray(arr)) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No data</td></tr>`;
+                return;
+            }
+            const fmt = v => (v === null || v === undefined) ? '-' : (isFinite(Number(v)) ? Number(v).toFixed(2) : String(v));
+            const classFor = v => {
+                const n = Number(v);
+                if (!isFinite(n)) return '';
+                if (n <= 0.7) return 'pcr-low';
+                if (n > 1.2) return 'pcr-high';
+                return 'pcr-neutral';
+            };
+
+            const rows = arr.map(item => {
+                const rawOverall = item.overall_pcr;
+                const rawWindow = item.pcr_plusminus_5;
+                const overallFmt = fmt(rawOverall);
+                const windowFmt = fmt(rawWindow);
+                const overallClass = classFor(rawOverall);
+                const windowClass = classFor(rawWindow);
+
+                const overallCell = overallFmt === '-' ? `<td style="text-align:center">-</td>` : `<td style="text-align:center"><span class="${overallClass}">${overallFmt}</span></td>`;
+                const windowCell = windowFmt === '-' ? `<td style="text-align:center">-</td>` : `<td style="text-align:center"><span class="${windowClass}">${windowFmt}</span></td>`;
+
+                return `<tr><td style="text-align:left">${item.expiry}</td>${overallCell}${windowCell}</tr>`;
+            }).join('');
+            tbody.innerHTML = rows || `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No expiries</td></tr>`;
+        } catch (e) {
+            console.error('fetchAndRenderPcrByExpiry error', e);
+            const tbody = document.getElementById('pcr-expiries-body');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">Error loading data</td></tr>`;
+        }
+    }
+    </script>
 </head>
 <body>
     <div class="header">
@@ -1139,7 +1226,20 @@
             <!-- Greeks Chain Table -->
             <div class="card" style="grid-column: 1 / -1; margin-top: 12px;">
                 <div class="card-header">ξ Greeks by Strike Price</div>
-                <div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto;" id="greeks-column-toggles"></div>
+                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div id="greeks-column-toggles" style="display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
+                    <div id="greeks-filter-controls" style="display:flex; gap:8px; align-items:center;">
+                        <label style="font-size:12px; color:var(--text-secondary);">Filter:</label>
+                        <select id="greeks-filter-mode" style="padding:6px; background:var(--card-bg); border:1px solid var(--border); color:var(--text-primary);">
+                            <option value="all">All</option>
+                            <option value="plusminus">+/- N from Spot</option>
+                            <option value="plus">+N from Spot</option>
+                            <option value="minus">-N from Spot</option>
+                        </select>
+                        <input id="greeks-filter-n" type="number" min="1" value="10" style="width:60px; padding:6px; background:var(--card-bg); border:1px solid var(--border); color:var(--text-primary);" title="N (price units)" />
+                        <button id="greeks-filter-apply" style="padding:6px 8px; background:var(--accent); border:none; color:var(--dark-bg); font-weight:600; border-radius:4px; cursor:pointer;">Apply</button>
+                    </div>
+                </div>
                 <div style="overflow-x: auto;">
                     <table class="table-compact">
                         <thead id="greeks-table-head">
@@ -1272,6 +1372,25 @@
                             <div class="metric-value" id="trend-pcr-direction" style="font-size: 1.1em; margin: 2px 0;">-</div>
                             <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" id="trend-pcr-trend">-</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- PCR by Expiry Card -->
+                <div class="card" style="padding: 12px;">
+                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">🗓️ PCR by Expiry (NIFTY)</div>
+                    <div style="overflow-x:auto;">
+                        <table class="table-compact pcr-compact" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Expiry Date</th>
+                                    <th>Overall PCR (OI)</th>
+                                    <th>PCR ±5 Strikes from Spot</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pcr-expiries-body">
+                                <tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -1472,6 +1591,11 @@
                                     <div class="metric-value" id="enhanced-score">-</div>
                                     <div style="font-size: 11px; color: var(--text-secondary);" id="enhanced-decision">-</div>
                                 </div>
+                                <div style="background: rgba(100,100,150,0.03); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); text-align: left;">
+                                    <div class="metric-label">India VIX</div>
+                                    <div class="metric-value" id="trends-vix-value">-</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);" id="trends-vix-change">-</div>
+                                </div>
                         </div>
                     </div>
                     <!-- Enhanced V2.0 Factors (placed beside Max Pain to fill right area) -->
@@ -1534,6 +1658,14 @@
                     <div class="card-header">📝 CE vs PE Buildup (Call/Put Writing)</div>
                     <div class="chart-container" style="height: 320px; padding-top: 6px;">
                         <canvas id="callPutWritingChart" style="width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+
+                <!-- Max Pain vs Spot chart (interactive, uses trends JSON) -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div class="card-header">💰 Max Pain vs Spot</div>
+                    <div class="chart-container" style="height: 320px; padding-top: 6px;">
+                        <canvas id="maxPainSpotChart" style="width: 100%; height: 100%;"></canvas>
                     </div>
                 </div>
 
@@ -2070,6 +2202,70 @@
             });
         }
 
+        function plotMaxPainSpotChart(trends) {
+            const ctx = document.getElementById('maxPainSpotChart');
+            if (!ctx) return;
+
+            const timestamps = trends.map(t => {
+                const date = new Date(t.timestamp);
+                return date.toLocaleTimeString();
+            });
+
+            const spotValues = trends.map(t => t.nifty_value || t.underlying_value || 0);
+            const maxPainValues = trends.map(t => {
+                if (t.max_pain_analysis && t.max_pain_analysis.max_pain_strike !== undefined && t.max_pain_analysis.max_pain_strike !== null) {
+                    return Number(t.max_pain_analysis.max_pain_strike);
+                }
+                // fallback: round spot to nearest 100
+                const s = t.nifty_value || t.underlying_value || 0;
+                return Math.round(s / 100) * 100;
+            });
+
+            if (window.maxPainSpotChartInstance) {
+                window.maxPainSpotChartInstance.destroy();
+            }
+
+            window.maxPainSpotChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [
+                        {
+                            label: 'Spot',
+                            data: spotValues,
+                            borderColor: '#00bfff',
+                            backgroundColor: 'rgba(0, 191, 255, 0.08)',
+                            tension: 0.25,
+                            fill: true,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Max Pain',
+                            data: maxPainValues,
+                            borderColor: '#FFA500',
+                            backgroundColor: 'rgba(255, 165, 0, 0.06)',
+                            tension: 0.1,
+                            fill: false,
+                            borderWidth: 2,
+                            pointRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, labels: { color: '#b0b8d4', font: { size: 12 } } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' }, title: { display: true, text: 'Price', color: '#b0b8d4' } },
+                        x: { ticks: { color: '#b0b8d4' }, grid: { color: '#3a4563' } }
+                    }
+                }
+            });
+        }
+
         function displayTrendsData(data, stocksData) {
             console.log('displayTrendsData called with:', data);
             console.log('stocksData:', stocksData);
@@ -2467,6 +2663,28 @@
                     }
                 }
 
+                // Display India VIX if available in stats or currentData
+                try {
+                    const vixVal = (stats && stats.vix) ? Number(stats.vix) : (currentData && currentData.vix ? Number(currentData.vix) : null);
+                    const vixChange = (stats && typeof stats.vix_change !== 'undefined') ? stats.vix_change : (currentData && currentData.vix_change ? currentData.vix_change : null);
+                    const vixElem = document.getElementById('trends-vix-value');
+                    const vixChangeElem = document.getElementById('trends-vix-change');
+                    if (vixElem) vixElem.textContent = vixVal !== null && !isNaN(vixVal) ? vixVal.toFixed(2) : '-';
+                    if (vixChangeElem) vixChangeElem.textContent = vixChange !== null && !isNaN(vixChange) ? (vixChange>=0?'+':'') + Number(vixChange).toFixed(2) + '%' : '';
+
+                    if (vixElem) {
+                        if (vixVal !== null && !isNaN(vixVal)) {
+                            if (vixVal < 13) vixElem.style.color = '#4CAF50';
+                            else if (vixVal > 18) vixElem.style.color = '#FF6B6B';
+                            else vixElem.style.color = '#FFA500';
+                        } else {
+                            vixElem.style.color = 'var(--text-secondary)';
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error updating India VIX display:', e);
+                }
+
                 // === Enhanced V2.0 Trend Card Calculation ===
                 try {
                     // Gather inputs with fallbacks
@@ -2732,6 +2950,11 @@
                         plotCallPutWritingChart(trends);
                     } catch (e) {
                         console.error('Error plotting CE vs PE buildup chart:', e);
+                    }
+                    try {
+                        plotMaxPainSpotChart(trends);
+                    } catch (e) {
+                        console.error('Error plotting Max Pain vs Spot chart:', e);
                     }
                 }
 
@@ -3245,6 +3468,8 @@
                 safeSetContent('trend-pcr', pcr.pcr_oi);
                 safeSetBadge('trend-pcr-signal', pcr.signal);
                 safeSetContent('trend-pcr-desc', pcr.interpretation);
+                // Fetch PCR by expiry and render (global function)
+                try { fetchAndRenderPcrByExpiry(); } catch (e) { console.error('Error fetching PCR by expiry', e); }
                 
                 // Display PCR multi-timeframe changes if available
                 if (data.pcr_timeframe_changes) {
@@ -3382,12 +3607,30 @@
 
             const atm = greeks.greeks[Math.floor(greeks.greeks.length / 2)];
             console.log('ATM greek:', atm);
+            // Helper: apply color classes based on absolute gamma magnitude
+            function applyGammaColor(elemId, rawValue) {
+                try {
+                    const el = document.getElementById(elemId);
+                    if (!el) return;
+                    // Remove previous classes
+                    el.classList.remove('gamma-low','gamma-medium','gamma-high','gamma-extreme','gamma-blast');
+                    el.classList.add('gamma-blast');
+                    const v = Math.abs(parseFloat(rawValue));
+                    if (isNaN(v)) { el.classList.add('gamma-low'); return; }
+                    // Thresholds (tweakable): very small -> low, small -> medium, notable -> high, very large -> extreme
+                    if (v < 0.0005) el.classList.add('gamma-low');
+                    else if (v < 0.002) el.classList.add('gamma-medium');
+                    else if (v < 0.01) el.classList.add('gamma-high');
+                    else el.classList.add('gamma-extreme');
+                } catch (e) { console.error('applyGammaColor error', e); }
+            }
             
             if (atm && atm.ce && atm.pe) {
                 console.log('Updating ATM CE metrics');
                 
                 document.getElementById('greeks-ce-delta').textContent = parseFloat(atm.ce.delta).toFixed(3);
                 document.getElementById('greeks-ce-gamma').textContent = parseFloat(atm.ce.gamma).toFixed(6);
+                applyGammaColor('greeks-ce-gamma', atm.ce.gamma);
                 document.getElementById('greeks-ce-theta').textContent = parseFloat(atm.ce.theta).toFixed(2);
                 document.getElementById('greeks-ce-vega').textContent = parseFloat(atm.ce.vega).toFixed(2);
                 document.getElementById('greeks-ce-iv').textContent = atm.ce.iv + '%';
@@ -3396,6 +3639,7 @@
                 console.log('Updating ATM PE metrics');
                 document.getElementById('greeks-pe-delta').textContent = parseFloat(atm.pe.delta).toFixed(3);
                 document.getElementById('greeks-pe-gamma').textContent = parseFloat(atm.pe.gamma).toFixed(6);
+                applyGammaColor('greeks-pe-gamma', atm.pe.gamma);
                 document.getElementById('greeks-pe-theta').textContent = parseFloat(atm.pe.theta).toFixed(2);
                 document.getElementById('greeks-pe-vega').textContent = parseFloat(atm.pe.vega).toFixed(2);
                 document.getElementById('greeks-pe-iv').textContent = atm.pe.iv + '%';
@@ -3615,40 +3859,164 @@
             const headerHTML = '<tr>' + visibleOrder.map(key => `<th>${greeksColumnLabels[key]}</th>`).join('') + '</tr>';
             console.log('Setting header HTML');
             thead.innerHTML = headerHTML;
-            
-            // Render rows
-            console.log('Rendering', greeksArray.length, 'data rows');
-            const rowsHTML = greeksArray.map((row, idx) => {
+
+            // Helper: determine class for greek cell based on field and numeric magnitude
+            function getGreekClass(field, numericValue) {
+                if (numericValue === null || numericValue === undefined || isNaN(numericValue)) return 'greek-low';
+                const v = Math.abs(Number(numericValue));
+                if (field === 'gamma') {
+                    if (v < 0.0005) return 'greek-low';
+                    if (v < 0.002) return 'greek-medium';
+                    if (v < 0.01) return 'greek-high';
+                    return 'greek-extreme';
+                }
+                if (field === 'delta') {
+                    let base = 'greek-low';
+                    if (v < 0.1) base = 'greek-low';
+                    else if (v < 0.3) base = 'greek-medium';
+                    else if (v < 0.7) base = 'greek-high';
+                    else base = 'greek-extreme';
+                    // add sign-aware delta class
+                    const signClass = Number(numericValue) > 0 ? 'delta-pos' : Number(numericValue) < 0 ? 'delta-neg' : 'delta-neutral';
+                    return base + ' ' + signClass;
+                }
+                if (field === 'theta') {
+                    if (v < 0.1) return 'greek-low';
+                    if (v < 0.5) return 'greek-medium';
+                    if (v < 1) return 'greek-high';
+                    return 'greek-extreme';
+                }
+                if (field === 'vega') {
+                    if (v < 0.5) return 'greek-low';
+                    if (v < 1) return 'greek-medium';
+                    if (v < 2) return 'greek-high';
+                    return 'greek-extreme';
+                }
+                return 'greek-low';
+            }
+
+                // Get filter settings from UI
+                function getGreeksFilterSettings() {
+                    try {
+                        const mode = document.getElementById('greeks-filter-mode') ? document.getElementById('greeks-filter-mode').value : 'all';
+                        const nVal = document.getElementById('greeks-filter-n') ? parseFloat(document.getElementById('greeks-filter-n').value) : 10;
+                        return { mode: mode || 'all', n: isNaN(nVal) ? 10 : nVal };
+                    } catch (e) {
+                        return { mode: 'all', n: 10 };
+                    }
+                }
+                
+                
+
+                // Attach filter controls handlers (idempotent)
+                try {
+                    const applyBtn = document.getElementById('greeks-filter-apply');
+                    if (applyBtn) {
+                        applyBtn.onclick = () => { renderGreeksTable(greeksData); };
+                    }
+                    const modeSel = document.getElementById('greeks-filter-mode');
+                    if (modeSel) {
+                        modeSel.onchange = () => { /* keep selection until applied */ };
+                    }
+                } catch (e) { console.error('Error attaching greeks filter handlers', e); }
+
+            // Apply filter settings (All / +/- N / +N / -N from spot)
+            const filter = getGreeksFilterSettings();
+            console.log('Greeks filter settings:', filter);
+            let dataRows = greeksArray;
+            if (filter.mode && filter.mode !== 'all') {
+                const spot = Number((dataToUse && (dataToUse.underlying_value || dataToUse.current_price)) || 0);
+                const n = Number(filter.n) || 10;
+                dataRows = greeksArray.filter(r => {
+                    const strike = Number(r.strike);
+                    if (isNaN(strike)) return false;
+                    if (filter.mode === 'plusminus') return Math.abs(strike - spot) <= n;
+                    if (filter.mode === 'plus') return strike >= spot && strike <= (spot + n);
+                    if (filter.mode === 'minus') return strike <= spot && strike >= (spot - n);
+                    return true;
+                });
+            }
+
+            // Choose a single recommended strike-side (CE or PE) from the filtered rows
+            let recommended = null;
+            try {
+                let bestScore = -1;
+                dataRows.forEach(r => {
+                    const strike = r.strike;
+                    if (r.ce && r.ce.gamma !== undefined && r.ce.oi !== undefined) {
+                        const s = Math.abs(Number(r.ce.gamma)) * Number(r.ce.oi || 0);
+                        if (!isNaN(s) && s > bestScore) { bestScore = s; recommended = { strike: strike, side: 'ce' }; }
+                    }
+                    if (r.pe && r.pe.gamma !== undefined && r.pe.oi !== undefined) {
+                        const s = Math.abs(Number(r.pe.gamma)) * Number(r.pe.oi || 0);
+                        if (!isNaN(s) && s > bestScore) { bestScore = s; recommended = { strike: strike, side: 'pe' }; }
+                    }
+                });
+            } catch (e) { console.error('Error computing recommendation', e); }
+
+            // Render rows with color-coded greek cells
+            console.log('Rendering', dataRows.length, 'data rows (filtered from', greeksArray.length, ')');
+            const rowsHTML = dataRows.map((row, idx) => {
                 const cells = visibleOrder.map(key => {
-                    let val = '--';
+                    let raw = null;
+                    let display = '--';
                     try {
                         if (key === 'strike') {
-                            val = row.strike;
+                            raw = row.strike;
+                            // highlight strike if it's the recommended row
+                            if (recommended && Number(recommended.strike) === Number(raw)) {
+                                display = `<strong style="color: var(--accent);">${raw}</strong>`;
+                            } else {
+                                display = `<span>${raw}</span>`;
+                            }
                         } else if (key.startsWith('ce_')) {
                             const field = key.replace('ce_', '');
                             if (row.ce && row.ce[field] !== undefined) {
-                                val = row.ce[field];
-                                if (['delta', 'gamma', 'theta'].includes(field)) val = parseFloat(val).toFixed(3);
+                                raw = row.ce[field];
+                                if (['delta','gamma','theta','vega'].includes(field)) {
+                                    display = parseFloat(raw).toFixed(field === 'gamma' ? 6 : 3);
+                                    display = display.toString();
+                                } else {
+                                    display = row.ce[field];
+                                }
+                                if (['delta','gamma','theta','vega'].includes(field)) {
+                                    const cls = getGreekClass(field, raw);
+                                    let wrapped = `<span class="greek-blast ${cls}">${display}</span>`;
+                                    // bold recommended side
+                                    if (recommended && recommended.side === 'ce' && Number(recommended.strike) === Number(row.strike)) {
+                                        wrapped = `<span class="recommended">${wrapped}</span>`;
+                                    }
+                                    display = wrapped;
+                                }
                             }
                         } else if (key.startsWith('pe_')) {
                             const field = key.replace('pe_', '');
                             if (row.pe && row.pe[field] !== undefined) {
-                                val = row.pe[field];
-                                if (['delta', 'gamma', 'theta'].includes(field)) val = parseFloat(val).toFixed(3);
+                                raw = row.pe[field];
+                                if (['delta','gamma','theta','vega'].includes(field)) {
+                                    display = parseFloat(raw).toFixed(field === 'gamma' ? 6 : 3);
+                                    display = display.toString();
+                                } else {
+                                    display = row.pe[field];
+                                }
+                                if (['delta','gamma','theta','vega'].includes(field)) {
+                                    const cls = getGreekClass(field, raw);
+                                    let wrapped = `<span class="greek-blast ${cls}">${display}</span>`;
+                                    if (recommended && recommended.side === 'pe' && Number(recommended.strike) === Number(row.strike)) {
+                                        wrapped = `<span class="recommended">${wrapped}</span>`;
+                                    }
+                                    display = wrapped;
+                                }
                             }
                         }
                     } catch (e) {
                         console.error('Error rendering cell for key', key, 'in row', idx, ':', e);
                     }
-                    let color = '';
-                    if (key === 'strike') {
-                        color = 'font-weight: bold; color: var(--accent);';
-                    }
-                    return `<td style="${color}">${val}</td>`;
+                    return `<td>${display}</td>`;
                 }).join('');
-                return '<tr>' + cells + '</tr>';
+                return `<tr>${cells}</tr>`;
             }).join('');
-            
+
             console.log('Setting body HTML with', greeksArray.length, 'rows');
             tbody.innerHTML = rowsHTML;
             console.log('Greeks table rendered successfully');
