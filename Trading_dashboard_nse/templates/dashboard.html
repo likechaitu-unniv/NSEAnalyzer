@@ -16,20 +16,25 @@
         // Render the recent trends table with simple filters and highlighting
         function renderTrendsTable(allTrends, mode) {
             try {
-                if (!Array.isArray(allTrends)) allTrends = [];
-                let rows = [...allTrends];
-                // default: latest first
-                rows.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
-                if (!mode || mode === 'last10') rows = rows.slice(0, 10);
-                else if (mode === 'last20') rows = rows.slice(0, 20);
-                else if (mode === 'all') rows = rows.slice(0);
-                else if (mode === 'nonneutral') rows = rows.filter(r => (r.sentiment || '').toLowerCase() !== 'neutral').slice(0, 50);
-                else if (mode === 'bigoi') rows = rows.filter((r, idx, arr) => {
-                    const prev = arr[idx+1] || {};
-                    const pcrDiff = Math.abs((r.pcr_oi||0) - (prev.pcr_oi||0));
-                    const niftyDiff = Math.abs((r.nifty_value||0) - (prev.nifty_value||0));
-                    return pcrDiff > 0.05 || (prev.nifty_value && (niftyDiff / prev.nifty_value) > 0.003);
-                }).slice(0, 50);
+                    if (!Array.isArray(allTrends)) allTrends = [];
+                    let rows = [...allTrends];
+                    // default: latest first
+                    rows.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+                    // Default view: last 15 minutes (scalper focus). If no recent data available, fallback to last 10 rows.
+                    if (!mode || mode === 'last10') {
+                        const cutoff = Date.now() - (15 * 60 * 1000);
+                        const recent = rows.filter(r => new Date(r.timestamp).getTime() >= cutoff);
+                        rows = recent.length ? recent : rows.slice(0, 10);
+                    }
+                    else if (mode === 'last20') rows = rows.slice(0, 20);
+                    else if (mode === 'all') rows = rows.slice(0);
+                    else if (mode === 'nonneutral') rows = rows.filter(r => (r.sentiment || '').toLowerCase() !== 'neutral').slice(0, 50);
+                    else if (mode === 'bigoi') rows = rows.filter((r, idx, arr) => {
+                        const prev = arr[idx+1] || {};
+                        const pcrDiff = Math.abs((r.pcr_oi||0) - (prev.pcr_oi||0));
+                        const niftyDiff = Math.abs((r.nifty_value||0) - (prev.nifty_value||0));
+                        return pcrDiff > 0.02 || (prev.nifty_value && (niftyDiff / prev.nifty_value) > 0.003);
+                    }).slice(0, 50);
 
                 const tbody = document.getElementById('trends-table-body');
                 if (!tbody) return;
@@ -902,11 +907,31 @@
                 if (r.pe_pchangeinOpenInterest !== undefined) pe_pct = parsePct(r.pe_pchangeinOpenInterest);
                 else if (r.PE && r.PE.pchangeinOpenInterest !== undefined) pe_pct = parsePct(r.PE.pchangeinOpenInterest);
 
-                const ceClass = ce_pct > 0 ? 'buildup-positive' : (ce_pct < 0 ? 'buildup-negative' : 'buildup-neutral');
-                const peClass = pe_pct > 0 ? 'buildup-positive' : (pe_pct < 0 ? 'buildup-negative' : 'buildup-neutral');
+                // Decide visual class based on semantic buildup label when available.
+                const normalize = s => (s||'').toString().trim();
+                const ceLabel = ce_buildup_type ? normalize(ce_buildup_type) : (ce_pct ? `${ce_pct}%` : 'Neutral');
+                const peLabel = pe_buildup_type ? normalize(pe_buildup_type) : (pe_pct ? `${pe_pct}%` : 'Neutral');
 
-                const ceLabel = ce_buildup_type || (ce_pct ? `${ce_pct}%` : 'Neutral');
-                const peLabel = pe_buildup_type || (pe_pct ? `${pe_pct}%` : 'Neutral');
+                const decideClassFromLabel = (label, numericPct) => {
+                    const L = String(label || '').toUpperCase();
+                    if (!L || L === 'NULL' || L === 'NONE') return (numericPct>0) ? 'buildup-positive' : (numericPct<0 ? 'buildup-negative' : 'buildup-neutral');
+                    if (L.includes('NEUTRAL')) return 'buildup-neutral';
+                    // Semantic mappings:
+                    // Calls: 'Call Writing' (writing = bearish) -> negative; 'Call Buying' -> positive
+                    if (L.includes('CALL') && (L.includes('WRIT') || L.includes('WRITE') || L.includes('SHORT'))) return 'buildup-negative';
+                    if (L.includes('CALL') && (L.includes('BUY') || L.includes('LONG'))) return 'buildup-positive';
+                    // Puts: 'Put Buying' (buying puts = bearish) -> negative; 'Put Writing' (selling puts = bullish) -> positive
+                    if (L.includes('PUT') && (L.includes('BUY') || L.includes('BUYING'))) return 'buildup-negative';
+                    if (L.includes('PUT') && (L.includes('WRIT') || L.includes('WRITE') || L.includes('SHORT'))) return 'buildup-positive';
+                    // If label contains words like 'BUYING' or 'SELLING' map accordingly
+                    if (L.includes('BUYING') || L.includes('BUY')) return 'buildup-positive';
+                    if (L.includes('SELLING') || L.includes('WRITING') || L.includes('WRITE') || L.includes('SHORT')) return 'buildup-negative';
+                    // Fallback to numeric sign
+                    return (numericPct>0) ? 'buildup-positive' : (numericPct<0 ? 'buildup-negative' : 'buildup-neutral');
+                };
+
+                const ceClass = decideClassFromLabel(ce_buildup_type || ceLabel, ce_pct);
+                const peClass = decideClassFromLabel(pe_buildup_type || peLabel, pe_pct);
 
                 const isAtm = Math.abs(s - spot) <= (strikes[1]-strikes[0] || 0);
                 const strikeHtml = isAtm ? `<span class="recommended">${s}</span>` : `${s}`;
@@ -931,6 +956,79 @@
     window.addEventListener('DOMContentLoaded', function() {
         try { fetchAndRenderPcrByExpiry(); } catch (e) { console.error(e); }
         try { fetchAndRenderOptionsChain(); } catch (e) { console.error(e); }
+        try {
+            // Default expiry input to nearest weekly expiry (next Thursday) for scalper view
+            const inp = document.getElementById('expiryInput');
+            if (inp && !inp.value) {
+                const now = new Date();
+                const target = new Date(now.getTime());
+                // find next Thursday (day 4, with Sunday=0)
+                const day = target.getDay();
+                const daysUntilThu = (4 - day + 7) % 7 || 7; // always future or next
+                target.setDate(target.getDate() + daysUntilThu);
+                const yyyy = target.getFullYear();
+                const mm = String(target.getMonth()+1).padStart(2,'0');
+                const dd = String(target.getDate()).padStart(2,'0');
+                inp.value = `${yyyy}-${mm}-${dd}`;
+                // emit change to backend so data loads for that expiry
+                setTimeout(()=>{ try{ changeExpiry(); } catch(e){}} , 300);
+            }
+        } catch(e) { console.warn('expiry defaulting failed', e); }
+
+        // Watchdog: if no data arrives in 6 seconds, show a visible warning to the user
+        try {
+            setTimeout(async () => {
+                if (!receivedData) {
+                    // Try a one-shot HTTP fetch as a fallback to get analysis data
+                    try {
+                        const res = await fetch('/api/analyze-options');
+                        if (res.ok) {
+                            const payload = await res.json();
+                            // If payload looks valid, call display functions
+                            if (payload) {
+                                try {
+                                    receivedData = true;
+                                    currentData = payload;
+                                    // attempt to also fetch stock analysis
+                                    try {
+                                        const sres = await fetch('/api/analyze-stocks');
+                                        if (sres.ok) {
+                                            stocksData = await sres.json();
+                                        }
+                                    } catch(e) { console.warn('Stock fetch fallback failed', e); }
+
+                                    try { displayOptionsData(payload); } catch(e) { console.warn('displayOptionsData fallback error', e); }
+                                    try { displayTrendData(payload); } catch(e) { console.warn('displayTrendData fallback error', e); }
+                                    try { displayGreeksData(payload); } catch(e) { console.warn('displayGreeksData fallback error', e); }
+
+                                    // remove any warning banner if shown
+                                    const existing = document.getElementById('backend-warning');
+                                    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+                                    return;
+                                } catch(e) { console.warn('Fallback display error', e); }
+                            }
+                        }
+                    } catch (e) { console.warn('Fallback HTTP fetch failed', e); }
+
+                    // If still no data, show warning banner for user
+                    const noticeId = 'backend-warning';
+                    if (!document.getElementById(noticeId)) {
+                        const banner = document.createElement('div');
+                        banner.id = noticeId;
+                        banner.style.background = 'rgba(180,40,40,0.12)';
+                        banner.style.border = '1px solid rgba(180,40,40,0.18)';
+                        banner.style.color = '#FFD1D1';
+                        banner.style.padding = '8px 12px';
+                        banner.style.borderRadius = '6px';
+                        banner.style.margin = '8px 0';
+                        banner.style.fontWeight = '700';
+                        banner.textContent = 'No live data received yet — check backend/server or reload the page.';
+                        const header = document.querySelector('.header');
+                        if (header && header.parentNode) header.parentNode.insertBefore(banner, header.nextSibling);
+                    }
+                }
+            }, 6000);
+        } catch(e) { console.warn('watchdog setup failed', e); }
     });
     </script>
 </head>
@@ -943,6 +1041,7 @@
             <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark</button>
             <input type="date" id="expiryInput" title="Select expiry date">
             <button onclick="changeExpiry()">Change Expiry</button>
+            <button onclick="fetchNow()" id="fetch-now-btn" style="margin-left:8px;">Fetch Now</button>
         </div>
     </div>
 
@@ -976,6 +1075,12 @@
             <div id="global-bias-sub" style="color:var(--text-secondary); font-size:12px;">(components in agreement)</div>
         </div>
         <div id="global-bias-disagreements" style="color:var(--text-secondary); font-size:13px;">-</div>
+    </div>
+
+    <!-- Scalper Playbook: 2-3 line actionable instruction updated on signal changes -->
+    <div id="scalper-playbook" style="margin:6px 0 18px 0; padding:10px 12px; border-radius:6px; background: rgba(10,14,26,0.6); border:1px solid var(--border); color:var(--text-primary); font-size:13px;">
+        <strong style="color:var(--accent);">Scalper Playbook:</strong>
+        <div id="scalper-playbook-text" style="margin-top:6px;color:var(--text-secondary);">-</div>
     </div>
 
     <!-- STOCKS TAB -->
@@ -1120,7 +1225,7 @@
                 <div class="dashboard-grid">
                     <!-- Signal Card -->
                     <div class="card" style="grid-column: 1 / 2;">
-                        <div class="card-header">🎯 Intraday Signal <span title="System / intraday signal derived from options flow and short-term orderflow" style="font-size:11px; color:var(--text-secondary); margin-left:6px;">?</span></div>
+                        <div class="card-header">🎯 Intraday Signal <span title="Use this to decide trade direction for the next 5–15 minutes." style="font-size:11px; color:var(--text-secondary); margin-left:6px;">?</span></div>
                         <div class="card-value" id="options-signal" style="color: var(--accent);">-</div>
                         <div class="card-subtitle" id="options-action">-</div>
                         <div class="signal-badge signal-neutral" id="options-signal-badge">SIGNAL</div>
@@ -1151,7 +1256,7 @@
 
                     <!-- OI Analysis -->
                     <div class="card">
-                        <div class="card-header">📈 OI Buildup</div>
+                        <div class="card-header">📈 OI Buildup <span title="Use this to find levels to enter/exit scalps (look for CE/PE writing clusters as resistance/support)." style="font-size:11px; color:var(--text-secondary); margin-left:6px;">?</span></div>
                         <div id="options-oi-pattern" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
                         <div class="signal-badge signal-neutral" id="options-oi-signal">-</div>
                         <div class="card-row" style="margin-top: 12px;">
@@ -1731,7 +1836,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 320px 1fr; gap: 12px;">
                     <div class="card" style="padding: 12px;">
                         <div class="card-header" style="margin-bottom: 12px; font-size: 1.1em;">⏱️ PCR TIMEFRAME CHANGES</div>
-                            <div id="pcr-timeframe-note" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Showing changes > |0.05|</div>
+                            <div id="pcr-timeframe-note" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Showing changes > |0.02|</div>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
                             <!-- 1-Minute PCR Change -->
                             <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
@@ -1811,6 +1916,7 @@
                                 <div class="metric-label">Distance</div>
                                 <div class="metric-value" id="trends-maxpain-distance">-</div>
                                 <div style="font-size: 11px; color: var(--text-secondary);" id="trends-maxpain-distance-pct">-</div>
+                                <div id="trends-maxpain-hint" style="font-size:12px; color:var(--text-secondary); margin-top:6px;">-</div>
                             </div>
                                 <div style="background: rgba(100,100,150,0.03); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); text-align: left;">
                                     <div class="metric-label">Enhanced V2.0 Score</div>
@@ -1983,6 +2089,7 @@
         
         const socket = io();
         let currentData = null;
+        let receivedData = false; // becomes true once we get any analysis or options data
         let trendsCache = [];
         let stocksData = null;
         let greeksData = null;
@@ -2111,6 +2218,24 @@
                 const date = new Date(dateValue);
                 const formatted = `${String(date.getDate()).padStart(2, '0')}-${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()]}-${date.getFullYear()}`;
                 socket.emit('change_expiry', { expiry: formatted });
+            }
+        }
+
+        async function fetchNow() {
+            try {
+                const res = await fetch('/api/analyze-options');
+                if (!res.ok) throw new Error('Options API returned ' + res.status);
+                const payload = await res.json();
+                receivedData = true;
+                currentData = payload;
+                try { const sres = await fetch('/api/analyze-stocks'); if (sres.ok) stocksData = await sres.json(); } catch(e){ console.warn('stocks fetch failed', e); }
+                try { displayOptionsData(payload); } catch(e){ console.warn('displayOptionsData failed', e); }
+                try { displayTrendData(payload); } catch(e){ console.warn('displayTrendData failed', e); }
+                try { displayGreeksData(payload); } catch(e){ console.warn('displayGreeksData failed', e); }
+                const existing = document.getElementById('backend-warning'); if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+            } catch (e) {
+                console.error('fetchNow failed', e);
+                alert('Fetch failed: ' + e.message);
             }
         }
 
@@ -2615,8 +2740,12 @@
                         const conf = Number(currentData.confidence || 0);
                         if (confidenceElem) confidenceElem.textContent = `${conf}%`;
                         if (actionElem) {
-                            // Gray out low-confidence actions and show explicit guidance
-                            if (conf < 40) {
+                            // Hide actionable recommendation when confidence is very low (<30%).
+                            // Keep a muted low-confidence hint when between 30% and 40%.
+                            if (conf < 30) {
+                                actionElem.style.color = 'var(--text-secondary)';
+                                actionElem.textContent = 'Signal too weak to act — follow market trend and risk rules';
+                            } else if (conf < 40) {
                                 actionElem.style.color = 'var(--text-secondary)';
                                 actionElem.textContent = `${currentData.action} — Low confidence (reduce position size / avoid new trades)`;
                             } else {
@@ -2626,6 +2755,57 @@
                         }
                     }
                 }
+
+                // Update Scalper Playbook and top-banner play instruction
+                try {
+                    const playbookElem = document.getElementById('scalper-playbook-text');
+                    const gbLabel = document.getElementById('global-bias-label');
+                    // build concise play instruction using Market, deltaSignal, fmo, and greeks
+                    const greeks = (currentData && currentData.portfolio_greeks) ? currentData.portfolio_greeks : {};
+                    // derive local signals safely (these may not be in scope here)
+                    const market = (stocksData && stocksData.trend && stocksData.trend.trend) ? stocksData.trend.trend : (currentData.market_trend || '-');
+                    const intraday = (currentData && currentData.final_signal) ? currentData.final_signal : (currentData.primary_signal || '-');
+                    const deltaSignal = (currentData && currentData.portfolio_greeks && currentData.portfolio_greeks.delta_signal) ? currentData.portfolio_greeks.delta_signal : '-';
+                    const fmo = (currentData && currentData.fast_moving_options && currentData.fast_moving_options.overall_direction) ? currentData.fast_moving_options.overall_direction : '-';
+                    // recompute biasLabel locally so playbook can fall back on it
+                    let biasLabel = 'Neutral';
+                    try {
+                        const bullishCount = [market, intraday, deltaSignal, fmo].filter(s => String(s).toUpperCase().includes('BULL')).length;
+                        const bearishCount = [market, intraday, deltaSignal, fmo].filter(s => String(s).toUpperCase().includes('BEAR')).length;
+                        if (bullishCount >= 3) biasLabel = 'Strong Bullish — consider long bias';
+                        else if (bearishCount >= 3) biasLabel = 'Strong Bearish — avoid fresh longs';
+                        else if (bullishCount > bearishCount) biasLabel = 'Mild Bullish — cautious longs';
+                        else if (bearishCount > bullishCount) biasLabel = 'Mild Bearish — reduce longs / hedge';
+                        if (String(market).toUpperCase().includes('STRONG') && String(market).toUpperCase().includes('BEAR')) {
+                            biasLabel = 'Neutral / Cautious — Market strongly bearish (cap applied)';
+                        }
+                    } catch(e) { /* ignore */ }
+                    const gamma = Number(greeks.gamma || 0);
+                    const vega = Number(greeks.vega || 0);
+
+                    let playLines = [];
+                    // Strong bearish market but your book long
+                    if (String(market).toUpperCase().includes('BEAR') && String(deltaSignal).toUpperCase().includes('BULL')) {
+                        playLines.push('No fresh longs. Book profits on intraday longs into strength.');
+                        playLines.push('Look for small-size short scalps near CE writing clusters with tight stops.');
+                    } else if ((String(market).toUpperCase().includes('NEUT') || String(market).toUpperCase().includes('MIX')) && Math.abs(gamma) > 0.002 && Math.abs(vega) > 20) {
+                        playLines.push('Mean-reversion scalps only; avoid holding beyond 5–10 minutes. Use smaller size.');
+                    } else {
+                        // derive from biasLabel (fallback)
+                        const up = biasLabel && String(biasLabel).toUpperCase().includes('BULL');
+                        const down = biasLabel && String(biasLabel).toUpperCase().includes('BEAR');
+                        if (up && !down) playLines.push('Prefer long scalps on dips; tight stops and small size.');
+                        else if (down && !up) playLines.push('Prefer short scalps on bounces; tight stops and prefer small size.');
+                        else playLines.push('Market mixed — prefer quick mean-reversion scalps with strict stops.');
+                    }
+
+                    if (playbookElem) playbookElem.innerHTML = playLines.map(l=>`• ${l}`).join('<br>');
+                    if (gbLabel) {
+                        // Show first play line as the top-banner instruction (short)
+                        gbLabel.textContent = (playLines[0] || 'Follow intraday rules');
+                        gbLabel.style.color = 'var(--accent)';
+                    }
+                } catch(e) { console.warn('Error updating scalper playbook', e); }
 
                 // Display OI Buildup Signal (CE vs PE)
                 if (currentData && currentData.oi_buildup_analysis) {
@@ -2922,6 +3102,14 @@
                     else if (bullishCount > bearishCount) biasLabel = 'Mild Bullish — cautious longs';
                     else if (bearishCount > bullishCount) biasLabel = 'Mild Bearish — reduce longs / hedge';
 
+                    // Enforce market-dominant cap: if Market Trend is explicitly STRONG BEAR,
+                    // force the overall bias to a cautious/neutral stance regardless of other signals.
+                    try {
+                        if (String(market).toUpperCase().includes('STRONG') && String(market).toUpperCase().includes('BEAR')) {
+                            biasLabel = 'Neutral / Cautious — Market strongly bearish (cap applied)';
+                        }
+                    } catch (e) { /* ignore malformed market value */ }
+
                     const gbLabel = document.getElementById('global-bias-label');
                     const gbSub = document.getElementById('global-bias-sub');
                     const gbDis = document.getElementById('global-bias-disagreements');
@@ -2965,6 +3153,8 @@
                         const dU = String(deltaSignal).toUpperCase();
                         if ((mU.includes('BEAR') && dU.includes('BULL')) || (mU.includes('BULL') && dU.includes('BEAR'))) {
                             disagreements.push(`<span style="color:${compColor(market)}">Trend: ${market}</span> vs <span style="color:${compColor(deltaSignal)}">Delta: ${deltaSignal}</span>`);
+                            // Add explicit scalper conflict rule when Trend disagrees with Positions/Delta
+                            disagreements.push(`<span style="color:var(--warning)">Conflict: Trend vs Positions → scale out longs / add light hedge; look for short scalps only at resistance with tight stops.</span>`);
                         }
                         const iU = String(intraday).toUpperCase();
                         if ((mU.includes('BEAR') && iU.includes('BULL')) || (mU.includes('BULL') && iU.includes('BEAR'))) {
@@ -2976,9 +3166,23 @@
                         }
                     } catch(e) { /* ignore */ }
 
+                    // If we applied the market-strong-bear cap, make that explicit in disagreements
+                    try {
+                        if (String(biasLabel).toUpperCase().includes('CAP APPLIED') || (String(market).toUpperCase().includes('STRONG') && String(market).toUpperCase().includes('BEAR'))) {
+                            disagreements.unshift(`<span style="color:${compColor(market)}">Market strongly bearish — overall bias capped to Neutral/Cautious</span>`);
+                        }
+                    } catch(e) {}
+
                     if (gbDis) {
-                        if (disagreements.length === 0) gbDis.innerHTML = '<span style="color:var(--text-secondary)">Components in agreement</span>';
-                        else gbDis.innerHTML = disagreements.join(' • ');
+                        if (disagreements.length === 0) {
+                            gbDis.innerHTML = '<span style="color:var(--text-secondary)">Components in agreement</span>';
+                        } else {
+                            // Render each disagreement as a clear bullet point with preserved coloring
+                            const listHtml = '<ul style="margin:6px 0 0 18px; padding:0; list-style: disc;">' +
+                                disagreements.map(d => `<li style="margin:4px 0; line-height:1.25;">${d}</li>`).join('') +
+                                '</ul>';
+                            gbDis.innerHTML = listHtml;
+                        }
                     }
 
                     // Apply banner border color to indicate overall bias
@@ -2993,7 +3197,7 @@
                 // PCR timeframe changes (only show meaningful shifts)
                 try {
                     const tf = data.pcr_timeframe_changes || stats.pcr_timeframe_changes || {};
-                    const threshold = 0.05;
+                    const threshold = 0.02;
                     const tfKeys = Object.keys(tf || {});
                     let anyShown = false;
                     ['1min','2min','5min','10min'].forEach(k => {
@@ -3812,7 +4016,12 @@
                 document.getElementById('options-confidence').textContent = optConf + '%';
                 const optionsActionElem = document.getElementById('options-action');
                 if (optionsActionElem) {
-                    if (optConf < 40) {
+                    // Hide actionable recommendation when confidence is very low (<30%).
+                    // Keep a muted low-confidence hint when between 30% and 40%.
+                    if (optConf < 30) {
+                        optionsActionElem.style.color = 'var(--text-secondary)';
+                        optionsActionElem.textContent = 'Signal too weak to act — follow market trend and risk rules';
+                    } else if (optConf < 40) {
                         optionsActionElem.style.color = 'var(--text-secondary)';
                         optionsActionElem.textContent = `${data.action} — Low confidence (reduce position size / avoid new trades)`;
                     } else {
@@ -4500,6 +4709,7 @@
             console.log('Calling displayGreeksData...');
             
             currentData = data;
+            receivedData = true;
             displayOptionsData(data);
             displayTrendData(data);
             displayGreeksData(data);
