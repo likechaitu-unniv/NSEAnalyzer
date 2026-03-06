@@ -13,6 +13,92 @@
             box-sizing: border-box;
         }
 
+        // Render the recent trends table with simple filters and highlighting
+        function renderTrendsTable(allTrends, mode) {
+            try {
+                if (!Array.isArray(allTrends)) allTrends = [];
+                let rows = [...allTrends];
+                // default: latest first
+                rows.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+                if (!mode || mode === 'last10') rows = rows.slice(0, 10);
+                else if (mode === 'last20') rows = rows.slice(0, 20);
+                else if (mode === 'all') rows = rows.slice(0);
+                else if (mode === 'nonneutral') rows = rows.filter(r => (r.sentiment || '').toLowerCase() !== 'neutral').slice(0, 50);
+                else if (mode === 'bigoi') rows = rows.filter((r, idx, arr) => {
+                    const prev = arr[idx+1] || {};
+                    const pcrDiff = Math.abs((r.pcr_oi||0) - (prev.pcr_oi||0));
+                    const niftyDiff = Math.abs((r.nifty_value||0) - (prev.nifty_value||0));
+                    return pcrDiff > 0.05 || (prev.nifty_value && (niftyDiff / prev.nifty_value) > 0.003);
+                }).slice(0, 50);
+
+                const tbody = document.getElementById('trends-table-body');
+                if (!tbody) return;
+                if (rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="padding: 20px; text-align: center; color: var(--text-secondary);">No trend data available</td></tr>';
+                    return;
+                }
+
+                // highlight rows where PCR jumps >0.05 or Nifty moves >0.3% compared to next older row
+                const html = rows.map((trend, i) => {
+                    const timestamp = new Date(trend.timestamp).toLocaleString();
+                    const sentimentColor = trend.sentiment === 'bullish' ? '#4CAF50' : trend.sentiment === 'bearish' ? '#FF6B6B' : '#FFA500';
+                    const prev = rows[i+1] || {};
+                    const pcrJump = Math.abs((trend.pcr_oi||0) - (prev.pcr_oi||0));
+                    const niftyJumpPct = prev.nifty_value ? (Math.abs((trend.nifty_value||0) - (prev.nifty_value||0)) / prev.nifty_value) : 0;
+                    const highlight = (pcrJump > 0.05 || niftyJumpPct > 0.003);
+                    const rowStyle = highlight ? 'background: rgba(255, 255, 255, 0.03); border-left: 4px solid rgba(255, 191, 0, 0.12);' : '';
+                    return `
+                        <tr style="${rowStyle}">
+                            <td style="padding: 8px;">${timestamp}</td>
+                            <td style="padding: 8px;">${trend.nifty_value?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px;">${trend.pcr_oi?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px;">${trend.pcr_volume?.toFixed(2) || '-'}</td>
+                            <td style="padding: 8px; color: ${sentimentColor}; font-weight: bold;">${trend.sentiment || '-'}</td>
+                            <td style="padding: 8px;">${trend.iv_rank || '-'}</td>
+                            <td style="padding: 8px;">${trend.call_oi ? trend.call_oi.toLocaleString() : '-'}</td>
+                            <td style="padding: 8px;">${trend.put_oi ? trend.put_oi.toLocaleString() : '-'}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                tbody.innerHTML = html;
+            } catch(e) { console.error('renderTrendsTable error', e); }
+        }
+
+        // Draw small sparkline for CE/PE buildup (calls vs puts over last N samples)
+        function drawBuildupSparkline(callSeries, putSeries) {
+            try {
+                const canvas = document.getElementById('buildup-sparkline');
+                const txt = document.getElementById('buildup-trend-text');
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width; const h = canvas.height;
+                ctx.clearRect(0,0,w,h);
+
+                const maxVal = Math.max(...callSeries.concat(putSeries, [1]));
+                const minVal = Math.min(...callSeries.concat(putSeries, [0]));
+
+                const norm = v => (maxVal === minVal) ? h/2 : h - ((v - minVal) / (maxVal - minVal)) * h;
+
+                // draw calls (blue)
+                ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle='#00bfff';
+                callSeries.forEach((v,i)=>{ const x = (i/(callSeries.length-1 || 1))*w; const y=norm(v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+
+                // draw puts (green)
+                ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle='#4CAF50';
+                putSeries.forEach((v,i)=>{ const x = (i/(putSeries.length-1 || 1))*w; const y=norm(v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+
+                // show arrow/text
+                const lastCall = callSeries[callSeries.length-1] || 0; const prevCall = callSeries[callSeries.length-2] || 0;
+                const lastPut = putSeries[putSeries.length-1] || 0; const prevPut = putSeries[putSeries.length-2] || 0;
+                if (txt) {
+                    if (lastPut - prevPut > 0 && lastPut > lastCall) txt.textContent = 'Put writing rising — short-term support likely';
+                    else if (lastCall - prevCall > 0 && lastCall > lastPut) txt.textContent = 'Call writing rising — resistance pressure likely';
+                    else txt.textContent = 'Balanced recently';
+                }
+            } catch(e){ console.warn('drawBuildupSparkline error', e); }
+        }
+
         
 
         :root {
@@ -860,12 +946,36 @@
         </div>
     </div>
 
+    <!-- Strike details modal -->
+    <div id="strike-modal" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:9999;">
+        <div style="background:var(--card-bg); padding:16px; border-radius:8px; width:520px; max-width:95%;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="strike-modal-title" style="font-weight:800; color:var(--accent);">Strike</div>
+                <button onclick="closeStrikeModal()" style="background:transparent; border:none; color:var(--text-secondary); font-size:18px; cursor:pointer;">✕</button>
+            </div>
+            <div style="margin-top:8px;">
+                <canvas id="strike-mini-chart" width="480" height="120" style="width:100%; height:120px; background:transparent;"></canvas>
+            </div>
+            <div style="margin-top:12px; text-align:right;"><button onclick="closeStrikeModal()" style="padding:8px 12px;">Close</button></div>
+        </div>
+    </div>
+
     <div class="tabs">
         <button class="tab-button active" onclick="switchTab('stocks')">📈 Stocks</button>
         <button class="tab-button" onclick="switchTab('options')">📊 Analysis</button>
         <button class="tab-button" onclick="switchTab('greeks')">ξ Greeks</button>
         <button class="tab-button" onclick="switchTab('trends')">📉 Trends</button>
         <button class="tab-button" onclick="switchTab('guide')">📖 Guide</button>
+    </div>
+
+    <!-- Global Bias Banner (synthesizes multiple signals) -->
+    <div id="global-bias-banner" style="margin:12px 0; padding:10px 14px; border-radius:8px; background: linear-gradient(90deg, rgba(20,24,40,0.9), rgba(24,30,50,0.9)); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="display:flex; gap:10px; align-items:center;">
+            <div style="font-weight:800; color:var(--accent);">Global Bias:</div>
+            <div id="global-bias-label" style="font-size:1.05em; font-weight:700; color:var(--text-primary);">-</div>
+            <div id="global-bias-sub" style="color:var(--text-secondary); font-size:12px;">(components in agreement)</div>
+        </div>
+        <div id="global-bias-disagreements" style="color:var(--text-secondary); font-size:13px;">-</div>
     </div>
 
     <!-- STOCKS TAB -->
@@ -1010,7 +1120,7 @@
                 <div class="dashboard-grid">
                     <!-- Signal Card -->
                     <div class="card" style="grid-column: 1 / 2;">
-                        <div class="card-header">🎯 Primary Signal</div>
+                        <div class="card-header">🎯 Intraday Signal <span title="System / intraday signal derived from options flow and short-term orderflow" style="font-size:11px; color:var(--text-secondary); margin-left:6px;">?</span></div>
                         <div class="card-value" id="options-signal" style="color: var(--accent);">-</div>
                         <div class="card-subtitle" id="options-action">-</div>
                         <div class="signal-badge signal-neutral" id="options-signal-badge">SIGNAL</div>
@@ -1392,7 +1502,7 @@
                             <div style="font-size: 12px;" id="trends-avg-change">-</div>
                         </div>
                         <div class="metric-item" style="flex: 1; padding-left: 0; border-top: 1px solid var(--border); padding-top: 8px;">
-                            <div class="metric-label" style="font-size: 11px;">Primary Signal</div>
+                            <div class="metric-label" style="font-size: 11px;">Intraday Signal <span title="Short-term/system signal - may differ from broader market trend" style="font-size:10px; color:var(--text-secondary);">?</span></div>
                             <div class="metric-value" id="trends-primary-signal" style="font-size: 1.3em; margin: 4px 0;">-</div>
                             <div class="metric-label" style="font-size: 11px;">Confidence</div>
                             <div style="font-size: 12px; margin-bottom: 4px;" id="trends-confidence">-</div>
@@ -1428,6 +1538,10 @@
                             <div class="call-put-labels">
                                 <div class="bar-label-item" style="text-align: left;">Call: <span id="trends-call-count" style="color: #FF6B6B;">-</span></div>
                                 <div class="bar-label-item" style="text-align: right;">Put: <span id="trends-put-count" style="color: #4CAF50;">-</span></div>
+                            </div>
+                            <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                                <canvas id="buildup-sparkline" width="140" height="28" style="background:transparent;"></canvas>
+                                <div id="buildup-trend-text" style="font-size:12px; color:var(--text-secondary);">-</div>
                             </div>
                         </div>
                         
@@ -1521,7 +1635,11 @@
                         <!-- Left: Portfolio Delta -->
                         <div style="flex:1; min-width:220px; border-right: 1px solid var(--border); padding-right:12px;">
                             <div class="metric-label" style="font-size: 11px;">Net Delta</div>
-                            <div class="metric-value" id="greeks-portfolio-delta" style="font-size: 1.4em; margin: 6px 0;">-</div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div class="metric-value" id="greeks-portfolio-delta" style="font-size: 1.4em; margin: 6px 0;">-</div>
+                                <div id="greeks-equiv-futures" style="font-size:12px;color:var(--text-secondary);">-</div>
+                            </div>
+                            <div style="margin-top:6px;"><span id="greeks-delta-traffic" class="greek-blast greek-low">-</span></div>
                             <div class="signal-badge" id="greeks-delta-signal" style="font-size: 11px; padding: 4px 8px; margin-top: 4px;">-</div>
 
                             <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top:10px;">
@@ -1553,18 +1671,29 @@
                             <div class="metric-label" style="font-size: 11px;">Portfolio Gamma</div>
                             <div class="metric-value" id="greeks-portfolio-gamma" style="font-size: 1.3em; margin: 6px 0;">-</div>
 
-                            <div style="margin-top:6px;">
-                                <div class="metric-label" style="font-size: 11px;">Risk Level</div>
-                                <div class="signal-badge" id="greeks-gamma-signal" style="font-size: 11px; padding: 4px 8px; margin-top: 4px;">-</div>
+                            <div style="margin-top:6px; display:flex; gap:8px; align-items:center;">
+                                <div style="flex:1;">
+                                    <div class="metric-label" style="font-size: 11px;">Risk Level</div>
+                                    <div class="signal-badge" id="greeks-gamma-signal" style="font-size: 11px; padding: 4px 8px; margin-top: 4px;">-</div>
+                                </div>
+                                <div style="flex:0 0 auto;">
+                                    <span id="greeks-gamma-traffic" class="greek-blast greek-low">Gamma: -</span>
+                                </div>
                             </div>
 
                             <div style="border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--text-secondary); margin-top:10px;">
                                 <div class="metric-label" style="font-size: 11px; margin-bottom: 4px;">Portfolio Theta</div>
-                                <div id="greeks-portfolio-theta" style="font-size: 1.1em; color: var(--text-primary);">-</div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <div id="greeks-portfolio-theta" style="font-size: 1.1em; color: var(--text-primary);">-</div>
+                                    <div><span id="greeks-theta-traffic" class="greek-blast greek-low">Theta: -</span></div>
+                                </div>
                             </div>
                             <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top:8px;">
                                 <div class="metric-label" style="font-size: 11px; margin-bottom: 4px;">Portfolio Vega</div>
-                                <div id="greeks-portfolio-vega" style="font-size: 1.1em; color: var(--text-primary);">-</div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <div id="greeks-portfolio-vega" style="font-size: 1.1em; color: var(--text-primary);">-</div>
+                                    <div><span id="greeks-vega-traffic" class="greek-blast greek-low">Vega: -</span></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1583,11 +1712,12 @@
                                     <th>Gamma</th>
                                     <th>Delta</th>
                                     <th>OI</th>
+                                    <th>Use‑case</th>
                                     <th>IV %</th>
                                 </tr>
                             </thead>
                             <tbody id="fast-movers-table">
-                                <tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                                <tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1601,6 +1731,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 320px 1fr; gap: 12px;">
                     <div class="card" style="padding: 12px;">
                         <div class="card-header" style="margin-bottom: 12px; font-size: 1.1em;">⏱️ PCR TIMEFRAME CHANGES</div>
+                            <div id="pcr-timeframe-note" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Showing changes > |0.05|</div>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
                             <!-- 1-Minute PCR Change -->
                             <div style="padding: 12px; background: rgba(100, 100, 150, 0.1); border-radius: 6px; border: 1px solid rgba(100, 150, 255, 0.2); text-align: center;">
@@ -1687,6 +1818,14 @@
                                     <div style="font-size: 11px; color: var(--text-secondary);" id="enhanced-decision">-</div>
                                 </div>
                                 <div style="background: rgba(100,100,150,0.03); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); text-align: left;">
+                                    <div class="metric-label">Enhanced Buckets</div>
+                                    <div style="display:flex; gap:8px; margin-top:6px;">
+                                        <div style="flex:1; font-size:12px; color:var(--text-secondary);">Directional: <span id="enh-directional-verdict" style="font-weight:700;color:var(--text-primary);">-</span></div>
+                                        <div style="flex:1; font-size:12px; color:var(--text-secondary);">Volatility: <span id="enh-volatility-verdict" style="font-weight:700;color:var(--text-primary);">-</span></div>
+                                        <div style="flex:1; font-size:12px; color:var(--text-secondary);">Structure: <span id="enh-structure-verdict" style="font-weight:700;color:var(--text-primary);">-</span></div>
+                                    </div>
+                                </div>
+                                <div style="background: rgba(100,100,150,0.03); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); text-align: left;">
                                     <div class="metric-label">India VIX</div>
                                     <div class="metric-value" id="trends-vix-value">-</div>
                                     <div style="font-size: 11px; color: var(--text-secondary);" id="trends-vix-change">-</div>
@@ -1767,7 +1906,16 @@
                 <!-- (Max Pain moved beside PCR timeframe earlier) -->
 
                 <div class="card" style="grid-column: 1 / -1;">
-                    <div class="card-header">📈 Recent Trend History (Last 50)</div>
+                    <div class="card-header">📈 Recent Trend History</div>
+                    <div style="display:flex; gap:8px; align-items:center; margin:8px 0 12px 0;">
+                        <div style="font-size:12px; color:var(--text-secondary);">View:</div>
+                        <button onclick="renderTrendsTable(trendsCache, 'last10')" style="padding:6px;">Last 10</button>
+                        <button onclick="renderTrendsTable(trendsCache, 'last20')" style="padding:6px;">Last 20</button>
+                        <button onclick="renderTrendsTable(trendsCache, 'all')" style="padding:6px;">All</button>
+                        <button onclick="renderTrendsTable(trendsCache, 'nonneutral')" style="padding:6px;">Only ≠ neutral</button>
+                        <button onclick="renderTrendsTable(trendsCache, 'bigoi')" style="padding:6px;">Big OI events</button>
+                        <div id="trends-filter-note" style="margin-left:auto; font-size:12px; color:var(--text-secondary);">Showing last 10 by default</div>
+                    </div>
                     <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
                         <table class="table-compact" style="width: 100%; font-size: 12px;">
                             <thead style="position: sticky; top: 0; background: var(--dark-bg);">
@@ -1835,6 +1983,7 @@
         
         const socket = io();
         let currentData = null;
+        let trendsCache = [];
         let stocksData = null;
         let greeksData = null;
         let trendsRefreshInterval = null; // For auto-refresh
@@ -1925,6 +2074,32 @@
                 loadGuide();
             }
         }
+
+            // Strike details modal + helper
+            function showStrikeDetails(strike, type) {
+                try {
+                    const modal = document.getElementById('strike-modal');
+                    const title = document.getElementById('strike-modal-title');
+                    const canvas = document.getElementById('strike-mini-chart');
+                    if (!modal || !canvas) return;
+                    title.textContent = `${strike} ${type} — recent OI / Price`;
+                    // build series from trendsCache
+                    const seriesOIs = (trendsCache || []).slice(-20).map(t => {
+                        // try to extract per-strike OI if present in trend; fallback to total OI
+                        return (t.fast_moving_options && t.fast_moving_options.per_strike && t.fast_moving_options.per_strike[ strike ]) ? (t.fast_moving_options.per_strike[strike].oi || 0) : (t.call_oi || 0);
+                    });
+                    const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width, canvas.height);
+                    // draw simple line
+                    const w = canvas.width, h = canvas.height;
+                    const maxv = Math.max(...seriesOIs, 1); const minv = Math.min(...seriesOIs, 0);
+                    const norm = v => (maxv===minv) ? h/2 : h - ((v-minv)/(maxv-minv))*h;
+                    ctx.beginPath(); ctx.strokeStyle='#00bfff'; ctx.lineWidth=2;
+                    seriesOIs.forEach((v,i)=>{ const x = (i/(seriesOIs.length-1||1))*w; const y=norm(v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+                    modal.style.display = 'block';
+                } catch(e){ console.warn('showStrikeDetails error', e); }
+            }
+
+            function closeStrikeModal(){ const m=document.getElementById('strike-modal'); if(m) m.style.display='none'; }
 
         function toggleTheme() {
             document.documentElement.style.filter = document.documentElement.style.filter === 'invert(1)' ? '' : 'invert(1)';
@@ -2424,7 +2599,7 @@
                     const signalElement = document.getElementById('trends-primary-signal');
                     if (signalElement) {
                         signalElement.textContent = currentData.final_signal;
-                        
+
                         // Add color based on signal
                         let signalColor = '#FFA500'; // Neutral (orange)
                         if (currentData.final_signal.includes('BULLISH')) {
@@ -2433,12 +2608,22 @@
                             signalColor = '#FF6B6B'; // Red
                         }
                         signalElement.style.color = signalColor;
-                        
+
                         // Update signal details in combined card
                         const confidenceElem = document.getElementById('trends-confidence');
                         const actionElem = document.getElementById('trends-action');
-                        if (confidenceElem) confidenceElem.textContent = `${currentData.confidence}%`;
-                        if (actionElem) actionElem.textContent = currentData.action;
+                        const conf = Number(currentData.confidence || 0);
+                        if (confidenceElem) confidenceElem.textContent = `${conf}%`;
+                        if (actionElem) {
+                            // Gray out low-confidence actions and show explicit guidance
+                            if (conf < 40) {
+                                actionElem.style.color = 'var(--text-secondary)';
+                                actionElem.textContent = `${currentData.action} — Low confidence (reduce position size / avoid new trades)`;
+                            } else {
+                                actionElem.style.color = '';
+                                actionElem.textContent = currentData.action;
+                            }
+                        }
                     }
                 }
 
@@ -2521,6 +2706,15 @@
                             decisionElement.style.color = decisionColor;
                         }
                         if (rationaleElement) rationaleElement.textContent = rationale;
+                        // Draw small recent CE/PE buildup sparkline (last 5 samples)
+                        try {
+                            const recent = data.recent_trends || [];
+                            const lastN = 6;
+                            const samples = recent.slice(-lastN);
+                            const callSeries = samples.map(s => (s.oi_buildup_signal ? (s.call_oi || s.call_writing || 0) : (s.call_oi || s.call_writing || 0))).map(v=>Number(v||0));
+                            const putSeries = samples.map(s => (s.oi_buildup_signal ? (s.put_oi || s.put_writing || 0) : (s.put_oi || s.put_writing || 0))).map(v=>Number(v||0));
+                            if (callSeries.length>1 || putSeries.length>1) drawBuildupSparkline(callSeries, putSeries);
+                        } catch(e){ console.warn('Error drawing buildup sparkline', e); }
                     }
                 }
 
@@ -2550,6 +2744,18 @@
                     const peDeltaElem = document.getElementById('greeks-pe-delta');
                     
                     if (portfolioDeltaElem) portfolioDeltaElem.textContent = pg.portfolio_delta || 0;
+                    // Equivalent futures lots (approximation): use 50 delta per lot unit
+                    try {
+                        const netDelta = Number(pg.portfolio_delta || 0);
+                        const eqLots = Math.round(Math.abs(netDelta) / 50);
+                        const eqElem = document.getElementById('greeks-equiv-futures');
+                        if (eqElem) {
+                            if (isFinite(eqLots) && eqLots > 0) eqElem.textContent = `~${eqLots} futures lots (approx)`;
+                            else eqElem.textContent = '';
+                        }
+                    } catch (e) {
+                        console.warn('Error computing equivalent futures lots', e);
+                    }
                     if (deltaBiasElem) deltaBiasElem.textContent = pg.delta_bias || '-';
                     if (ceDeltaElem) ceDeltaElem.textContent = pg.ce_delta || 0;
                     if (peDeltaElem) peDeltaElem.textContent = pg.pe_delta || 0;
@@ -2588,6 +2794,18 @@
                     if (deltaPePortion) deltaPePortion.style.width = pePercent + '%';
                     if (deltaCeLabel) deltaCeLabel.textContent = Math.round(cePercent) + '%';
                     if (deltaPeLabel) deltaPeLabel.textContent = Math.round(pePercent) + '%';
+
+                    // Set delta traffic light
+                    try {
+                        const dt = document.getElementById('greeks-delta-traffic');
+                        const net = Number(pg.portfolio_delta || 0);
+                        if (dt) {
+                            if (Math.abs(net) > 5000) { dt.className = 'greek-blast greek-extreme'; dt.textContent = `Delta: STRONG (${net>0? 'Bullish' : 'Bearish'})`; }
+                            else if (Math.abs(net) > 1500) { dt.className = 'greek-blast greek-high'; dt.textContent = `Delta: HIGH (${net>0? 'Bullish' : 'Bearish'})`; }
+                            else if (Math.abs(net) > 500) { dt.className = 'greek-blast greek-medium'; dt.textContent = `Delta: MEDIUM (${net>0? 'Bullish' : 'Bearish'})`; }
+                            else { dt.className = 'greek-blast greek-low'; dt.textContent = `Delta: LOW`; }
+                        }
+                    } catch (e) { console.warn('Error setting delta traffic', e); }
                     
                     // Gamma Risk Card
                     const gammaPortfolioElem = document.getElementById('greeks-portfolio-gamma');
@@ -2613,6 +2831,28 @@
                             gammaSignalElem.classList.add('signal-neutral'); // Moderate = neutral
                         }
                     }
+                    // Gamma/Theta/Vega traffic lights
+                    try {
+                        const gTraffic = document.getElementById('greeks-gamma-traffic');
+                        const tTraffic = document.getElementById('greeks-theta-traffic');
+                        const vTraffic = document.getElementById('greeks-vega-traffic');
+                        const gVal = Number(pg.portfolio_gamma || 0);
+                        const tVal = Number(pg.portfolio_theta || 0);
+                        const vVal = Number(pg.portfolio_vega || 0);
+                        if (gTraffic) {
+                            if (Math.abs(gVal) > 1.0) { gTraffic.className='greek-blast greek-extreme'; gTraffic.textContent = `Gamma: HIGH — avoid adding ATM weeklies`; }
+                            else if (Math.abs(gVal) > 0.3) { gTraffic.className='greek-blast greek-high'; gTraffic.textContent = `Gamma: MEDIUM — caution`; }
+                            else { gTraffic.className='greek-blast greek-low'; gTraffic.textContent = `Gamma: LOW`; }
+                        }
+                        if (tTraffic) {
+                            if (Math.abs(tVal) > 500) { tTraffic.className='greek-blast greek-high'; tTraffic.textContent = `Theta: HIGH — time decay sensitive`; }
+                            else { tTraffic.className='greek-blast greek-low'; tTraffic.textContent = `Theta: NORMAL`; }
+                        }
+                        if (vTraffic) {
+                            if (Math.abs(vVal) > 30) { vTraffic.className='greek-blast greek-high'; vTraffic.textContent = `Vega: HIGH — volatility risk`; }
+                            else { vTraffic.className='greek-blast greek-low'; vTraffic.textContent = `Vega: NORMAL`; }
+                        }
+                    } catch(e){ console.warn('Error setting greeks traffic', e); }
                 }
                 
                 // Fast Moving Options Card
@@ -2630,15 +2870,22 @@
                             } else if (option.direction === 'BEARISH') {
                                 directionColor = '#FF6B6B'; // Red
                             }
+                            // Derive use-case tag (simple rule)
+                            let usecase = 'Caution';
+                            if (Math.abs(option.gamma) > 0.001 && option.iv < 30 && option.direction === 'BULLISH') usecase = 'Scalp candidate';
+                            else if (Math.abs(option.gamma) > 0.001 && option.direction === 'BEARISH') usecase = 'Hedge/Scalp';
+                            else if (option.iv > 40) usecase = 'Caution (high IV)';
+                            else usecase = 'Monitor';
                             
                             return `
-                                <tr>
+                                <tr onclick="showStrikeDetails(${option.strike}, '${option.type}')" style="cursor:pointer;">
                                     <td><strong>${option.strike}</strong></td>
                                     <td>${option.type}</td>
                                     <td><span style="color: ${directionColor}; font-weight: bold;">${option.direction}</span></td>
                                     <td>${option.gamma.toFixed(6)}</td>
                                     <td>${option.delta.toFixed(4)}</td>
                                     <td>${(option.oi / 1000).toFixed(1)}K</td>
+                                    <td style="font-weight:700;">${usecase}</td>
                                     <td>${option.iv.toFixed(2)}</td>
                                 </tr>
                             `;
@@ -2659,8 +2906,120 @@
                     }
                 }
 
+                // Global Bias synthesis: combine Market Trend, Intraday/System Signal, Portfolio Delta bias, Fast Movers
+                try {
+                    const market = (stocksData && stocksData.trend && stocksData.trend.trend) ? stocksData.trend.trend : (data.market_trend || '-');
+                    const intraday = (currentData && currentData.final_signal) ? currentData.final_signal : (data.primary_signal || '-');
+                    const deltaSignal = (currentData && currentData.portfolio_greeks && currentData.portfolio_greeks.delta_signal) ? currentData.portfolio_greeks.delta_signal : '-';
+                    const fmo = (currentData && currentData.fast_moving_options && currentData.fast_moving_options.overall_direction) ? currentData.fast_moving_options.overall_direction : '-';
+
+                    // Simple synthesis rules
+                    let biasLabel = 'Neutral';
+                    const bullishCount = [market, intraday, deltaSignal, fmo].filter(s => String(s).toUpperCase().includes('BULL')).length;
+                    const bearishCount = [market, intraday, deltaSignal, fmo].filter(s => String(s).toUpperCase().includes('BEAR')).length;
+                    if (bullishCount >= 3) biasLabel = 'Strong Bullish — consider long bias';
+                    else if (bearishCount >= 3) biasLabel = 'Strong Bearish — avoid fresh longs';
+                    else if (bullishCount > bearishCount) biasLabel = 'Mild Bullish — cautious longs';
+                    else if (bearishCount > bullishCount) biasLabel = 'Mild Bearish — reduce longs / hedge';
+
+                    const gbLabel = document.getElementById('global-bias-label');
+                    const gbSub = document.getElementById('global-bias-sub');
+                    const gbDis = document.getElementById('global-bias-disagreements');
+                    // color for main banner
+                    const banner = document.getElementById('global-bias-banner');
+
+                    // Decide banner color style
+                    let bannerColor = '#FFA500'; // neutral amber
+                    if (biasLabel.toUpperCase().includes('STRONG BULL')) bannerColor = '#064E3B';
+                    else if (biasLabel.toUpperCase().includes('BULL')) bannerColor = '#0B6623';
+                    else if (biasLabel.toUpperCase().includes('STRONG BEAR')) bannerColor = '#4C0303';
+                    else if (biasLabel.toUpperCase().includes('BEAR')) bannerColor = '#A12D2D';
+
+                    if (gbLabel) {
+                        gbLabel.textContent = biasLabel;
+                        gbLabel.style.color = (biasLabel.toUpperCase().includes('BEAR')) ? '#FFB3B3' : (biasLabel.toUpperCase().includes('BULL') ? '#D1FAE5' : 'var(--text-primary)');
+                    }
+
+                    // Build colored component summary
+                    const compColor = (val) => {
+                        if (!val) return '#b0b8d4';
+                        const s = String(val).toUpperCase();
+                        if (s.includes('STRONG BULL') || s.includes('BULLISH')) return '#4CAF50';
+                        if (s.includes('STRONG BEAR') || s.includes('BEARISH')) return '#FF6B6B';
+                        if (s.includes('NEUTRAL') || s.includes('MIXED')) return '#B0B8D4';
+                        return '#FFA500';
+                    };
+
+                    if (gbSub) {
+                        gbSub.innerHTML = `Market: <span style="color:${compColor(market)}; font-weight:700;">${market}</span>, ` +
+                                        `Intraday: <span style="color:${compColor(intraday)}; font-weight:700;">${intraday}</span>, ` +
+                                        `Delta: <span style="color:${compColor(deltaSignal)}; font-weight:700;">${deltaSignal}</span>, ` +
+                                        `Options: <span style="color:${compColor(fmo)}; font-weight:700;">${fmo}</span>`;
+                    }
+
+                    // Build disagreements list with colored items
+                    const disagreements = [];
+                    // If market disagrees with delta (e.g., market Bearish, delta Bullish)
+                    try {
+                        const mU = String(market).toUpperCase();
+                        const dU = String(deltaSignal).toUpperCase();
+                        if ((mU.includes('BEAR') && dU.includes('BULL')) || (mU.includes('BULL') && dU.includes('BEAR'))) {
+                            disagreements.push(`<span style="color:${compColor(market)}">Trend: ${market}</span> vs <span style="color:${compColor(deltaSignal)}">Delta: ${deltaSignal}</span>`);
+                        }
+                        const iU = String(intraday).toUpperCase();
+                        if ((mU.includes('BEAR') && iU.includes('BULL')) || (mU.includes('BULL') && iU.includes('BEAR'))) {
+                            disagreements.push(`<span style="color:${compColor(market)}">Trend: ${market}</span> vs <span style="color:${compColor(intraday)}">Intraday: ${intraday}</span>`);
+                        }
+                        const fU = String(fmo).toUpperCase();
+                        if ((mU.includes('BEAR') && fU.includes('BULL')) || (mU.includes('BULL') && fU.includes('BEAR'))) {
+                            disagreements.push(`<span style="color:${compColor(market)}">Trend: ${market}</span> vs <span style="color:${compColor(fmo)}">Options: ${fmo}</span>`);
+                        }
+                    } catch(e) { /* ignore */ }
+
+                    if (gbDis) {
+                        if (disagreements.length === 0) gbDis.innerHTML = '<span style="color:var(--text-secondary)">Components in agreement</span>';
+                        else gbDis.innerHTML = disagreements.join(' • ');
+                    }
+
+                    // Apply banner border color to indicate overall bias
+                    if (banner) {
+                        banner.style.borderLeft = `6px solid ${bannerColor}`;
+                        banner.style.boxShadow = `0 2px 8px rgba(0,0,0,0.3)`;
+                    }
+                } catch(e) { console.warn('Error computing global bias', e); }
+
                 // Display PCR Analysis
                 const pcrAnalysis = stats.pcr_analysis || {};
+                // PCR timeframe changes (only show meaningful shifts)
+                try {
+                    const tf = data.pcr_timeframe_changes || stats.pcr_timeframe_changes || {};
+                    const threshold = 0.05;
+                    const tfKeys = Object.keys(tf || {});
+                    let anyShown = false;
+                    ['1min','2min','5min','10min'].forEach(k => {
+                        const val = (tf && tf[k]) ? Number(tf[k]) : null;
+                        const elValue = document.getElementById(`pcr-${k}-value`);
+                        const elDirection = document.getElementById(`pcr-${k}-direction`);
+                        const elPercent = document.getElementById(`pcr-${k}-percent`);
+                        const elBadge = document.getElementById(`pcr-${k}-badge`);
+                        if (val === null || !isFinite(val) || Math.abs(val) < threshold) {
+                            // mark as NO CHANGE
+                            if (elValue) elValue.textContent = '0.0000';
+                            if (elPercent) elPercent.textContent = '0.00%';
+                            if (elBadge) elBadge.textContent = 'NO CHANGE';
+                        } else {
+                            anyShown = true;
+                            if (elValue) elValue.textContent = Number(val).toFixed(4);
+                            if (elPercent) elPercent.textContent = (Number(val)*100).toFixed(2) + '%';
+                            if (elDirection) elDirection.textContent = val>0 ? '⬆️' : '⬇️';
+                            if (elBadge) elBadge.textContent = Math.abs(val) > threshold ? 'MEANINGFUL' : 'NO CHANGE';
+                        }
+                    });
+                    if (!anyShown) {
+                        const containerNote = document.getElementById('pcr-timeframe-note');
+                        if (containerNote) containerNote.textContent = 'No meaningful PCR shift in last checked intervals';
+                    }
+                } catch(e) { console.warn('Error updating PCR timeframe changes', e); }
                 if (pcrAnalysis.highest_pcr !== null && pcrAnalysis.highest_pcr !== undefined) {
                     const highElem = document.getElementById('trend-pcr-high');
                     const lowElem = document.getElementById('trend-pcr-low');
@@ -2890,6 +3249,19 @@
                         else enhancedDecisionElem.style.color = 'var(--text-secondary)';
                     }
 
+                    // Compute bucket verdicts: Directional, Volatility, Structure
+                    try {
+                        const dirScore = ( (spot>maxpain?1:0) + (oi_pcr>1?1:0) + (breadth>0?1:0) );
+                        const volScore = ( (iv_skew>5?1:0) + (vix>15?1:0) + (vega>20?1:0) );
+                        const structScore = ( (gamma_diff>0?1:0) + (delta_ce>0.5?1:0) + (theta_ratio<1?1:0) );
+                        const dirEl = document.getElementById('enh-directional-verdict');
+                        const volEl = document.getElementById('enh-volatility-verdict');
+                        const structEl = document.getElementById('enh-structure-verdict');
+                        if (dirEl) { dirEl.textContent = dirScore >=2 ? 'Mild Bullish' : (dirScore<=0 ? 'Mild Bearish' : 'Neutral'); dirEl.style.color = dirScore>=2? '#4CAF50' : (dirScore<=0? '#FF6B6B' : '#FFA500'); }
+                        if (volEl) { volEl.textContent = volScore>=2 ? 'Volatile' : (volScore<=0 ? 'Stable' : 'Mixed'); volEl.style.color = volScore>=2? '#FF6B6B' : (volScore<=0? '#4CAF50' : '#FFA500'); }
+                        if (structEl) { structEl.textContent = structScore>=2 ? 'Tail Risk' : (structScore<=0 ? 'Structure OK' : 'Neutral'); structEl.style.color = structScore>=2? '#FF6B6B' : (structScore<=0? '#4CAF50' : '#FFA500'); }
+                    } catch(e) { console.warn('Error computing enhanced bucket verdicts', e); }
+
                     // Populate per-factor fields (IDs: enh-factor-1 .. enh-factor-9)
                     try {
                         const f1 = document.getElementById('enh-factor-1');
@@ -3013,27 +3385,8 @@
                 });
                 
                 const tbody = document.getElementById('trends-table-body');
-                
-                if (trends.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="padding: 20px; text-align: center; color: var(--text-secondary);">No trend data available yet</td></tr>';
-                } else {
-                    tbody.innerHTML = trends.map(trend => {
-                        const timestamp = new Date(trend.timestamp).toLocaleString();
-                        const sentimentColor = trend.sentiment === 'bullish' ? '#4CAF50' : trend.sentiment === 'bearish' ? '#FF6B6B' : '#FFA500';
-                        return `
-                            <tr>
-                                <td style="padding: 8px;">${timestamp}</td>
-                                <td style="padding: 8px;">${trend.nifty_value?.toFixed(2) || '-'}</td>
-                            <td style="padding: 8px;">${trend.pcr_oi?.toFixed(2) || '-'}</td>
-                            <td style="padding: 8px;">${trend.pcr_volume?.toFixed(2) || '-'}</td>
-                            <td style="padding: 8px; color: ${sentimentColor}; font-weight: bold;">${trend.sentiment || '-'}</td>
-                            <td style="padding: 8px;">${trend.iv_rank || '-'}</td>
-                            <td style="padding: 8px;">${trend.call_oi ? trend.call_oi.toLocaleString() : '-'}</td>
-                            <td style="padding: 8px;">${trend.put_oi ? trend.put_oi.toLocaleString() : '-'}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
+                trendsCache = trends.slice();
+                try { renderTrendsTable(trendsCache, 'last10'); } catch(e) { console.error('renderTrendsTable failed', e); }
 
                 // Plot PCR chart and CE vs PE buildup when trends exist
                 if (trends.length > 0) {
@@ -3454,8 +3807,19 @@
             
             try {
                 document.getElementById('options-signal').textContent = data.final_signal;
-                document.getElementById('options-action').textContent = data.action;
-                document.getElementById('options-confidence').textContent = data.confidence + '%';
+                // Confidence handling: gray out low-confidence actions
+                const optConf = Number(data.confidence || 0);
+                document.getElementById('options-confidence').textContent = optConf + '%';
+                const optionsActionElem = document.getElementById('options-action');
+                if (optionsActionElem) {
+                    if (optConf < 40) {
+                        optionsActionElem.style.color = 'var(--text-secondary)';
+                        optionsActionElem.textContent = `${data.action} — Low confidence (reduce position size / avoid new trades)`;
+                    } else {
+                        optionsActionElem.style.color = '';
+                        optionsActionElem.textContent = data.action;
+                    }
+                }
                 
                 const badge = document.getElementById('options-signal-badge');
                 badge.className = 'signal-badge';
