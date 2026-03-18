@@ -158,32 +158,41 @@
             overflow-x: hidden;
         }
 
-        .header {
+        /* ── Unified Mega-Header ── */
+        .mega-header {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        /* Row 1: brand + controls */
+        .mega-header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            background: var(--card-bg);
-            border-radius: 8px;
-            border: 1px solid var(--border);
+            padding: 10px 16px 0 16px;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
-        .header h1 {
-            font-size: 1.4em;
+        .mega-header-top h1 {
+            font-size: 1.25em;
             margin: 0;
+            white-space: nowrap;
         }
 
         .header-controls {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .header-controls button,
         .header-controls input {
-            padding: 6px 12px;
+            padding: 5px 11px;
             background: var(--dark-bg);
             border: 1px solid var(--border);
             color: var(--text-primary);
@@ -200,34 +209,99 @@
             border-color: var(--accent);
         }
 
-        .tabs {
+        /* Row 2: tab strip */
+        .mega-header-tabs {
             display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 0;
+            padding: 0 8px;
+            margin-top: 4px;
             border-bottom: 1px solid var(--border);
             flex-wrap: wrap;
         }
 
         .tab-button {
-            padding: 10px 16px;
+            padding: 8px 14px;
             background: transparent;
             border: none;
             color: var(--text-secondary);
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             border-bottom: 2px solid transparent;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
-        .tab-button:hover {
-            color: var(--accent);
-        }
+        .tab-button:hover { color: var(--accent); }
 
         .tab-button.active {
             color: var(--accent);
             border-bottom-color: var(--accent);
         }
+
+        /* Row 3: bias + playbook combined strip */
+        .mega-header-bias {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            padding: 8px 16px 10px 16px;
+            flex-wrap: wrap;
+            background: linear-gradient(90deg, rgba(0,191,255,0.04), transparent);
+        }
+
+        .mega-header-bias-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-right: 1px solid var(--border);
+            padding-right: 16px;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .mega-header-bias-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .mega-header-bias-value {
+            font-size: 1.0em;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .mega-header-bias-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .mega-header-playbook {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .mega-header-playbook-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .mega-header-playbook-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Keep old .tabs/.header for any stray JS that targets them */
+        .header { display: none; }
+        .tabs   { display: none; }
 
         .tab-content {
             display: none;
@@ -1033,17 +1107,18 @@
     </script>
 </head>
 <body>
-    <div class="header">
-        <div>
+    <!-- Unified Mega-Header -->
+    <div class="mega-header">
+        <!-- Row 1: Brand + Controls -->
+        <div class="mega-header-top">
             <h1>📊 Nifty Dashboard</h1>
+            <div class="header-controls">
+                <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark</button>
+                <input type="date" id="expiryInput" title="Select expiry date">
+                <button onclick="changeExpiry()">Change Expiry</button>
+                <button onclick="fetchNow()" id="fetch-now-btn">Fetch Now</button>
+            </div>
         </div>
-        <div class="header-controls">
-            <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark</button>
-            <input type="date" id="expiryInput" title="Select expiry date">
-            <button onclick="changeExpiry()">Change Expiry</button>
-            <button onclick="fetchNow()" id="fetch-now-btn" style="margin-left:8px;">Fetch Now</button>
-        </div>
-    </div>
 
     <!-- Strike details modal -->
     <div id="strike-modal" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:9999;">
@@ -1059,29 +1134,28 @@
         </div>
     </div>
 
-    <div class="tabs">
-        <button class="tab-button active" onclick="switchTab('stocks')">📈 Stocks</button>
-        <button class="tab-button" onclick="switchTab('options')">📊 Analysis</button>
-        <button class="tab-button" onclick="switchTab('greeks')">ξ Greeks</button>
-        <button class="tab-button" onclick="switchTab('trends')">📉 Trends</button>
-        <button class="tab-button" onclick="switchTab('guide')">📖 Guide</button>
-    </div>
-
-    <!-- Global Bias Banner (synthesizes multiple signals) -->
-    <div id="global-bias-banner" style="margin:12px 0; padding:10px 14px; border-radius:8px; background: linear-gradient(90deg, rgba(20,24,40,0.9), rgba(24,30,50,0.9)); border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <div style="display:flex; gap:10px; align-items:center;">
-            <div style="font-weight:800; color:var(--accent);">Global Bias:</div>
-            <div id="global-bias-label" style="font-size:1.05em; font-weight:700; color:var(--text-primary);">-</div>
-            <div id="global-bias-sub" style="color:var(--text-secondary); font-size:12px;">(components in agreement)</div>
+        <!-- Row 2: Tab Strip -->
+        <div class="mega-header-tabs">
+            <button class="tab-button active" onclick="switchTab('stocks')">📈 Stocks</button>
+            <button class="tab-button" onclick="switchTab('options')">📊 Analysis</button>
+            <button class="tab-button" onclick="switchTab('greeks')">ξ Greeks</button>
+            <button class="tab-button" onclick="switchTab('trends')">📉 Trends</button>
+            <button class="tab-button" onclick="switchTab('guide')">📖 Guide</button>
         </div>
-        <div id="global-bias-disagreements" style="color:var(--text-secondary); font-size:13px;">-</div>
-    </div>
-
-    <!-- Scalper Playbook: 2-3 line actionable instruction updated on signal changes -->
-    <div id="scalper-playbook" style="margin:6px 0 18px 0; padding:10px 12px; border-radius:6px; background: rgba(10,14,26,0.6); border:1px solid var(--border); color:var(--text-primary); font-size:13px;">
-        <strong style="color:var(--accent);">Scalper Playbook:</strong>
-        <div id="scalper-playbook-text" style="margin-top:6px;color:var(--text-secondary);">-</div>
-    </div>
+        <!-- Row 3: Global Bias + Scalper Playbook -->
+        <div class="mega-header-bias">
+            <div class="mega-header-bias-left">
+                <span class="mega-header-bias-label">Global Bias</span>
+                <span id="global-bias-label" class="mega-header-bias-value">-</span>
+                <span id="global-bias-sub" class="mega-header-bias-sub">Components in agreement</span>
+            </div>
+            <div class="mega-header-playbook">
+                <div class="mega-header-playbook-label">Scalper Playbook</div>
+                <div id="scalper-playbook-text" class="mega-header-playbook-text">-</div>
+            </div>
+            <div id="global-bias-disagreements" style="margin-left:auto; align-self:center; font-size:12px; color:var(--text-secondary); white-space:nowrap; padding-left:12px;">-</div>
+        </div>
+    </div><!-- end .mega-header -->
 
     <!-- STOCKS TAB -->
     <div id="stocks" class="tab-content active">
@@ -1733,77 +1807,6 @@
 
                 <!-- Trend Statistics Card removed per request -->
 
-                <!-- Combined Delta & Gamma Card -->
-                <div class="card" style="padding: 12px;">
-                    <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">ξ Portfolio Delta &nbsp;|&nbsp; ⚡ Gamma Risk</div>
-                    <div class="card-row" style="gap: 12px; display:flex; flex-direction:row;">
-                        <!-- Left: Portfolio Delta -->
-                        <div style="flex:1; min-width:220px; border-right: 1px solid var(--border); padding-right:12px;">
-                            <div class="metric-label" style="font-size: 11px;">Net Delta</div>
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <div class="metric-value" id="greeks-portfolio-delta" style="font-size: 1.4em; margin: 6px 0;">-</div>
-                                <div id="greeks-equiv-futures" style="font-size:12px;color:var(--text-secondary);">-</div>
-                            </div>
-                            <div style="margin-top:6px;"><span id="greeks-delta-traffic" class="greek-blast greek-low">-</span></div>
-                            <div class="signal-badge" id="greeks-delta-signal" style="font-size: 11px; padding: 4px 8px; margin-top: 4px;">-</div>
-
-                            <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top:10px;">
-                                <div class="metric-label" style="font-size: 11px; margin-bottom: 6px;">CE vs PE Delta</div>
-                                <div class="call-put-bar-container">
-                                    <div class="call-put-bar-track">
-                                        <div class="call-portion" id="delta-ce-portion" style="width: 50%; background-color: #FF6B6B;">
-                                            <span class="portion-label" style="color: white; font-weight: 600;" id="delta-ce-label">CE</span>
-                                        </div>
-                                        <div class="put-portion" id="delta-pe-portion" style="width: 50%; background-color: #4CAF50;">
-                                            <span class="portion-label" style="color: white; font-weight: 600;" id="delta-pe-label">PE</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="call-put-labels">
-                                    <div class="bar-label-item" style="text-align: left;">CE: <span id="greeks-ce-delta" style="color: #FF6B6B;">-</span></div>
-                                    <div class="bar-label-item" style="text-align: right;">PE: <span id="greeks-pe-delta" style="color: #4CAF50;">-</span></div>
-                                </div>
-                            </div>
-
-                            <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top:10px;">
-                                <div class="metric-label" style="font-size: 11px; margin-bottom: 4px;">Bias Analysis</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);" id="greeks-delta-bias">-</div>
-                            </div>
-                        </div>
-
-                        <!-- Right: Gamma Risk -->
-                        <div style="flex:1; min-width:220px; padding-left:12px;">
-                            <div class="metric-label" style="font-size: 11px;">Portfolio Gamma</div>
-                            <div class="metric-value" id="greeks-portfolio-gamma" style="font-size: 1.3em; margin: 6px 0;">-</div>
-
-                            <div style="margin-top:6px; display:flex; gap:8px; align-items:center;">
-                                <div style="flex:1;">
-                                    <div class="metric-label" style="font-size: 11px;">Risk Level</div>
-                                    <div class="signal-badge" id="greeks-gamma-signal" style="font-size: 11px; padding: 4px 8px; margin-top: 4px;">-</div>
-                                </div>
-                                <div style="flex:0 0 auto;">
-                                    <span id="greeks-gamma-traffic" class="greek-blast greek-low">Gamma: -</span>
-                                </div>
-                            </div>
-
-                            <div style="border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--text-secondary); margin-top:10px;">
-                                <div class="metric-label" style="font-size: 11px; margin-bottom: 4px;">Portfolio Theta</div>
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div id="greeks-portfolio-theta" style="font-size: 1.1em; color: var(--text-primary);">-</div>
-                                    <div><span id="greeks-theta-traffic" class="greek-blast greek-low">Theta: -</span></div>
-                                </div>
-                            </div>
-                            <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top:8px;">
-                                <div class="metric-label" style="font-size: 11px; margin-bottom: 4px;">Portfolio Vega</div>
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <div id="greeks-portfolio-vega" style="font-size: 1.1em; color: var(--text-primary);">-</div>
-                                    <div><span id="greeks-vega-traffic" class="greek-blast greek-low">Vega: -</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Fast Moving Options Card -->
                 <div class="card" style="padding: 12px;">
                     <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">🚀 Fast Moving Options (Top 8)</div>
@@ -2009,6 +2012,14 @@
                     </div>
                 </div>
 
+                <!-- OI by Strike Snapshot Chart -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div class="card-header">📌 OI by Strike (Snapshot)</div>
+                    <div class="chart-container" style="height: 420px; padding-top: 6px;">
+                        <canvas id="oiByStrikeChart" style="width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+
                 <!-- (Max Pain moved beside PCR timeframe earlier) -->
 
                 <div class="card" style="grid-column: 1 / -1;">
@@ -2158,6 +2169,8 @@
                     }
                 });
             }
+
+            // plotOiByStrikeChart moved to global scope (see top of file)
             
             if (!buttonFound) {
                 console.warn('[TAB] WARNING: Could not find button for tab:', tabName);
@@ -2567,6 +2580,103 @@
                     <td class="text-right" style="color: #FF6B6B;">${s.pChange.toFixed(2)}%</td>
                 </tr>
             `).join('');
+        }
+
+        // Plot OI by Strike (snapshot) - renders CE and PE open interest per strike
+        function plotOiByStrikeChart(rows, spot) {
+            try {
+                const ctx = document.getElementById('oiByStrikeChart');
+                if (!ctx) return;
+
+                // Build strike -> { call, put }
+                const byStrike = {};
+                (rows || []).forEach(r => {
+                    const s = Number(r.strike || r.strikePrice || r['strikePrice'] || r['strike']);
+                    if (!isFinite(s)) return;
+                    const ce = (r.CE && r.CE.openInterest !== undefined) ? r.CE.openInterest : (r.ce_oi || r.call_oi || 0);
+                    const pe = (r.PE && r.PE.openInterest !== undefined) ? r.PE.openInterest : (r.pe_oi || r.put_oi || 0);
+                    byStrike[s] = { call: Number(ce || 0), put: Number(pe || 0) };
+                });
+
+                const strikes = Object.keys(byStrike).map(x => Number(x)).sort((a,b)=>a-b);
+                if (!strikes.length) {
+                    if (window.oiByStrikeChartInstance) { window.oiByStrikeChartInstance.destroy(); window.oiByStrikeChartInstance = null; }
+                    return;
+                }
+
+                const callData = strikes.map(s => byStrike[s] ? byStrike[s].call : 0);
+                const putData = strikes.map(s => byStrike[s] ? byStrike[s].put : 0);
+
+                if (window.oiByStrikeChartInstance) { window.oiByStrikeChartInstance.destroy(); }
+
+                window.oiByStrikeChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: strikes.map(s => String(s)),
+                        datasets: [
+                            { label: 'Call OI', data: callData, backgroundColor: '#00bfff' },
+                            { label: 'Put OI', data: putData, backgroundColor: '#FF6B6B' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { labels: { color: '#b0b8d4', font: { size: 12 } } }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#b0b8d4' }, grid: { display: false } },
+                            y: {
+                                ticks: {
+                                    color: '#b0b8d4',
+                                    callback: function(value) {
+                                        if (value >= 1e7) return (value/1e7).toFixed(1) + 'Cr';
+                                        if (value >= 1e5) return (value/1e5).toFixed(1) + 'L';
+                                        if (value >= 1000) return (value/1000).toFixed(1) + 'K';
+                                        return value;
+                                    }
+                                },
+                                grid: { color: '#3a4563' },
+                                beginAtZero: true
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'spotLine',
+                        afterDraw: chart => {
+                            try {
+                                if (!spot) return;
+                                const xScale = chart.scales.x;
+                                let idx = 0;
+                                let minDiff = Infinity;
+                                for (let i=0;i<strikes.length;i++) {
+                                    const d = Math.abs(strikes[i] - spot);
+                                    if (d < minDiff) { minDiff = d; idx = i; }
+                                }
+                                const label = String(strikes[idx]);
+                                const x = xScale.getPixelForValue(label);
+                                const ctx2 = chart.ctx;
+                                ctx2.save();
+                                ctx2.setLineDash([6,4]);
+                                ctx2.strokeStyle = '#ffffff99';
+                                ctx2.lineWidth = 1.5;
+                                ctx2.beginPath();
+                                ctx2.moveTo(x, chart.chartArea.top);
+                                ctx2.lineTo(x, chart.chartArea.bottom);
+                                ctx2.stroke();
+                                ctx2.restore();
+
+                                ctx2.save();
+                                ctx2.fillStyle = '#ffffff';
+                                ctx2.font = '12px sans-serif';
+                                ctx2.fillText('Spot: ' + (spot || '-'), Math.min(x + 8, chart.chartArea.right - 60), chart.chartArea.top + 14);
+                                ctx2.restore();
+                            } catch(e) { /* silent */ }
+                        }
+                    }]
+                });
+            } catch(e) { console.error('plotOiByStrikeChart error', e); }
         }
 
         function loadTrendsData() {
@@ -3609,10 +3719,33 @@
                     } catch (e) {
                         console.error('Error plotting Max Pain vs Spot chart:', e);
                     }
+
+                    // Fetch latest options snapshot to render OI-by-strike chart (single snapshot)
+                    try {
+                        fetch('/api/analyze-options')
+                            .then(res => res.json())
+                            .then(opt => {
+                                try {
+                                    const rows = opt.rows || opt.data || [];
+                                    const spot = Number(opt.underlying_value || opt.underlyingValue || opt.spot || opt.underlying || 0);
+                                    plotOiByStrikeChart(rows, spot);
+                                } catch (e) { console.error('Error plotting OI-by-strike chart:', e); }
+                            })
+                            .catch(e => console.warn('Failed to fetch options snapshot for OI-by-strike:', e));
+                    } catch (e) { console.warn('OI-by-strike fetch wrapper failed', e); }
                 }
 
             document.getElementById('trends-loading').style.display = 'none';
             document.getElementById('trends-content').classList.remove('hidden');
+
+            // Ensure charts created while the container was hidden are resized and updated.
+            // This fixes Chart.js rendering issues when canvases are initialized while display:none.
+            setTimeout(() => {
+                try { if (window.oiByStrikeChartInstance) { window.oiByStrikeChartInstance.resize(); window.oiByStrikeChartInstance.update(); } } catch(e){ console.warn('oiByStrike resize failed', e); }
+                try { if (window.callPutWritingChartInstance) { window.callPutWritingChartInstance.resize(); window.callPutWritingChartInstance.update(); } } catch(e){}
+                try { if (window.trendChartInstance) { window.trendChartInstance.resize(); window.trendChartInstance.update(); } } catch(e){}
+                try { if (window.maxPainSpotChartInstance) { window.maxPainSpotChartInstance.resize(); window.maxPainSpotChartInstance.update(); } } catch(e){}
+            }, 60);
             } catch (error) {
                 console.error('Error in displayTrendsData:', error);
                 console.error('Stack trace:', error.stack);
@@ -4056,8 +4189,13 @@
                 else if (oi.signal.includes('BEARISH')) document.getElementById('options-oi-signal').classList.add('signal-bearish');
                 else document.getElementById('options-oi-signal').classList.add('signal-neutral');
                 document.getElementById('options-oi-signal').textContent = oi.signal;
-                document.getElementById('options-call-oi').textContent = (oi.call_writing / 1000000).toFixed(2) + 'M';
-                document.getElementById('options-put-oi').textContent = (oi.put_writing / 1000000).toFixed(2) + 'M';
+                // Show both Total OI and recent OI writing change for clarity
+                document.getElementById('options-call-oi').textContent = (
+                    ((data.total_call_oi || 0) / 1000000).toFixed(2) + 'M • Δ ' + ((oi.call_writing || 0) / 1000000).toFixed(2) + 'M'
+                );
+                document.getElementById('options-put-oi').textContent = (
+                    ((data.total_put_oi || 0) / 1000000).toFixed(2) + 'M • Δ ' + ((oi.put_writing || 0) / 1000000).toFixed(2) + 'M'
+                );
                 
                 // Display buildup types
                 if (oi.ce_buildup_type) {
@@ -4724,7 +4862,8 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadStocksData();
+            // Make Trends the default active tab on initial load
+            try { switchTab('trends'); } catch(e) { console.warn('switchTab(trends) failed, falling back to stocks', e); loadStocksData(); }
         });
     </script>
 </body>

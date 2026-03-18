@@ -180,38 +180,65 @@ def derive_and_classify_nifty_option_chain(chain):
             
             ce_ltp = ce.get("lastPrice", 0)
             pe_ltp = pe.get("lastPrice", 0)
-            ce_oi_change = ce.get('pchangeinOpenInterest', 0)
-            pe_oi_change = pe.get('pchangeinOpenInterest', 0)
-            ce_price_change = ce.get('change', 0)
-            pe_price_change = pe.get('change', 0)
+
+            # Prefer absolute OI change when available; fall back to percent change
+            ce_oi_change_abs = ce.get('changeinOpenInterest') if ce.get('changeinOpenInterest') is not None else 0
+            pe_oi_change_abs = pe.get('changeinOpenInterest') if pe.get('changeinOpenInterest') is not None else 0
+            try:
+                ce_oi_pct = float(ce.get('pchangeinOpenInterest', 0))
+            except Exception:
+                ce_oi_pct = 0
+            try:
+                pe_oi_pct = float(pe.get('pchangeinOpenInterest', 0))
+            except Exception:
+                pe_oi_pct = 0
+
+            # Price directional change (may be absent in some datasets)
+            ce_price_change = ce.get('change', 0) or ce.get('pChange', 0) or 0
+            pe_price_change = pe.get('change', 0) or pe.get('pChange', 0) or 0
+
             ce_vol = ce.get('totalTradedVolume', 0)
             pe_vol = pe.get('totalTradedVolume', 0)
-            
-            # Classify CE buildup based on OI, price changes, and volume (threshold > 1000 for activity)
+
+            # Heuristics: significant movement if absolute OI change or percent change or large volume
+            def significant_move(abs_change, pct_change, vol, abs_thresh=100, pct_thresh=5, vol_thresh=1000):
+                return (abs(abs_change) >= abs_thresh) or (abs(pct_change) >= pct_thresh) or (vol >= vol_thresh and abs(abs_change) > 0)
+
+            # Classify CE buildup using absolute OI change (preferred) and price direction when available
             ce_buildup_type = "Neutral"
-            if ce_oi_change > 0 and ce_vol > 1000:
-                if ce_price_change > 0:
-                    ce_buildup_type = "Call Buying"
-                elif ce_price_change < 0:
-                    ce_buildup_type = "Call Writing"
-            elif ce_oi_change < 0 and ce_vol > 1000:
-                if ce_price_change > 0:
-                    ce_buildup_type = "Call Long Cover"
-                elif ce_price_change < 0:
-                    ce_buildup_type = "Call Short Cover"
-            
-            # Classify PE buildup based on OI, price changes, and volume (threshold > 1000 for activity)
+            if significant_move(ce_oi_change_abs, ce_oi_pct, ce_vol):
+                if ce_oi_change_abs > 0:
+                    if ce_price_change > 0:
+                        ce_buildup_type = "Call Buying"
+                    elif ce_price_change < 0:
+                        ce_buildup_type = "Call Writing"
+                    else:
+                        ce_buildup_type = "Call Buildup"
+                elif ce_oi_change_abs < 0:
+                    if ce_price_change > 0:
+                        ce_buildup_type = "Call Short Cover"
+                    elif ce_price_change < 0:
+                        ce_buildup_type = "Call Long Cover"
+                    else:
+                        ce_buildup_type = "Call Unwinding"
+
+            # Classify PE buildup similarly
             pe_buildup_type = "Neutral"
-            if pe_oi_change > 0 and pe_vol > 1000:
-                if pe_price_change > 0:
-                    pe_buildup_type = "Put Buying"
-                elif pe_price_change < 0:
-                    pe_buildup_type = "Put Writing"
-            elif pe_oi_change < 0 and pe_vol > 1000:
-                if pe_price_change > 0:
-                    pe_buildup_type = "Put Long Cover"
-                elif pe_price_change < 0:
-                    pe_buildup_type = "Put Short Cover"
+            if significant_move(pe_oi_change_abs, pe_oi_pct, pe_vol):
+                if pe_oi_change_abs > 0:
+                    if pe_price_change > 0:
+                        pe_buildup_type = "Put Buying"
+                    elif pe_price_change < 0:
+                        pe_buildup_type = "Put Writing"
+                    else:
+                        pe_buildup_type = "Put Buildup"
+                elif pe_oi_change_abs < 0:
+                    if pe_price_change > 0:
+                        pe_buildup_type = "Put Short Cover"
+                    elif pe_price_change < 0:
+                        pe_buildup_type = "Put Long Cover"
+                    else:
+                        pe_buildup_type = "Put Unwinding"
             
 
             ce_spot_distance = ce_ltp
@@ -230,12 +257,12 @@ def derive_and_classify_nifty_option_chain(chain):
                 "ce_spot_distance": ce_spot_distance,
                 "ce_spot_distance_pct": round(((spot - ce_ltp) / spot) * 100, 2),
                 "pe_iv": pe.get("impliedVolatility", 0),
-                "ce_pchangeinOpenInterest": f"{round(ce_oi_change)}%",
+                "ce_pchangeinOpenInterest": f"{round(ce_oi_pct)}%",
                 "pe_ltp": pe_ltp,
                 "pe_oi": pe.get("openInterest", 0),
                 "pe_spot_distance": pe_spot_distance,
                 "pe_spot_distance_pct": round(((spot - pe_ltp) / spot) * 100, 2),
-                "pe_pchangeinOpenInterest": f"{round(pe_oi_change)}%",
+                "pe_pchangeinOpenInterest": f"{round(pe_oi_pct)}%",
                 "ce_buildup_type": ce_buildup_type,
                 "pe_buildup_type": pe_buildup_type,
                 "ce_vol": ce_vol,

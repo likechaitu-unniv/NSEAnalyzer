@@ -255,8 +255,10 @@ class NiftyTrendAnalyzer:
         High IV: Market expects big moves (uncertainty)
         Low IV: Market expects stability
         """
-        atm_strike = min([abs(entry['CE']['strikePrice'] - self.underlying_value) 
-                         for entry in self.options_data if entry['CE']['strikePrice'] > 0])
+        atm_candidates = [abs(entry['CE']['strikePrice'] - self.underlying_value)
+                  for entry in self.options_data
+                  if entry.get('CE') and entry['CE'].get('strikePrice')]
+        atm_strike = min(atm_candidates) if atm_candidates else 0
         
         ce_iv_list = []
         pe_iv_list = []
