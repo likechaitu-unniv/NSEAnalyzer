@@ -373,54 +373,67 @@ class NiftyStockAnalyzer:
 # Initialize analyzers
 stock_analyzer = NiftyStockAnalyzer()
 
+# In-memory cache for the latest successful analysis result
+_latest_analysis_result = None
+_latest_analysis_lock = threading.Lock()
+
+# In-memory cache for the latest stock analysis result
+_latest_stocks_result = None
+_latest_stocks_lock = threading.Lock()
+
+
+def _run_option_analysis():
+    """Fetch + analyze options. Returns the result dict or raises."""
+    global expiry, _latest_stocks_result
+    data = fetch_nifty_option_chain(expiry)
+    analyzer = NiftyTrendAnalyzer(data)
+    result = analyzer.generate_composite_signal()
+
+    stock_result = stock_analyzer.analyze()
+    with _latest_stocks_lock:
+        _latest_stocks_result = stock_result
+    stock_trend = stock_result.get('trend', {})
+
+    trend_data = {
+        'timestamp': datetime.now().isoformat(),
+        'nifty_value': result.get('underlying_value'),
+        'pcr_oi': result.get('overall_pcr'),
+        'pcr_volume': result.get('overall_pcr_volume'),
+        'sentiment': result.get('final_signal', 'NEUTRAL').lower(),
+        'iv_rank': result.get('iv_analysis', {}).get('iv_rank') if isinstance(result.get('iv_analysis'), dict) else None,
+        'call_oi': result.get('total_call_oi'),
+        'put_oi': result.get('total_put_oi'),
+        'market_trend': stock_trend.get('trend', 'NEUTRAL'),
+        'advancers': stock_trend.get('advancers', 0),
+        'decliners': stock_trend.get('decliners', 0),
+        'avg_change': stock_trend.get('avg_change', 0),
+        'primary_signal': result.get('final_signal', 'NEUTRAL'),
+        'confidence': result.get('confidence', 0),
+        'action': result.get('action', '-'),
+        'oi_buildup_signal': result.get('oi_buildup_analysis', {}).get('signal', 'NEUTRAL'),
+        'call_writing': result.get('oi_buildup_analysis', {}).get('call_writing', 0),
+        'put_writing': result.get('oi_buildup_analysis', {}).get('put_writing', 0)
+    }
+    trend_storage.write_trend(trend_data)
+
+    pcr_timeframe_changes = trend_storage.get_pcr_changes_multiple_timeframes()
+    result['pcr_timeframe_changes'] = pcr_timeframe_changes
+    return result
+
 
 def transmit_option_analysis():
     """Threaded function to continuously analyze options and emit data"""
-    global expiry
+    global _latest_analysis_result
     while True:
         try:
-            # Get options data and analysis
-            data = fetch_nifty_option_chain(expiry)
-            analyzer = NiftyTrendAnalyzer(data)
-            result = analyzer.generate_composite_signal()
-            
-            # Get stock analysis data
-            stock_result = stock_analyzer.analyze()
-            stock_trend = stock_result.get('trend', {})
-            
-            # Write trend data to storage with both stock and options data
-            trend_data = {
-                'timestamp': datetime.now().isoformat(),
-                'nifty_value': result.get('underlying_value'),
-                'pcr_oi': result.get('overall_pcr'),
-                'pcr_volume': result.get('overall_pcr_volume'),
-                'sentiment': result.get('final_signal', 'NEUTRAL').lower(),
-                'iv_rank': result.get('iv_analysis', {}).get('iv_rank') if isinstance(result.get('iv_analysis'), dict) else None,
-                'call_oi': result.get('total_call_oi'),
-                'put_oi': result.get('total_put_oi'),
-                'market_trend': stock_trend.get('trend', 'NEUTRAL'),
-                'advancers': stock_trend.get('advancers', 0),
-                'decliners': stock_trend.get('decliners', 0),
-                'avg_change': stock_trend.get('avg_change', 0),
-                'primary_signal': result.get('final_signal', 'NEUTRAL'),
-                'confidence': result.get('confidence', 0),
-                'action': result.get('action', '-'),
-                'oi_buildup_signal': result.get('oi_buildup_analysis', {}).get('signal', 'NEUTRAL'),
-                'call_writing': result.get('oi_buildup_analysis', {}).get('call_writing', 0),
-                'put_writing': result.get('oi_buildup_analysis', {}).get('put_writing', 0)
-            }
-            trend_storage.write_trend(trend_data)
-            
-            # Add PCR multi-timeframe change data to result
-            pcr_timeframe_changes = trend_storage.get_pcr_changes_multiple_timeframes()
-            result['pcr_timeframe_changes'] = pcr_timeframe_changes
-            
+            result = _run_option_analysis()
+            with _latest_analysis_lock:
+                _latest_analysis_result = result
             socketio.emit('analysis_data', result)
             print("Emitted option analysis data and wrote trend with market data")
         except Exception as e:
             print(f"Error in option analysis: {e}")
             socketio.emit('error', {'message': str(e)})
-        
         time.sleep(15)
 
 
@@ -428,7 +441,12 @@ def transmit_option_analysis():
 @app.route('/')
 def index():
     """Serve the main HTML page"""
-    return render_template('dashboard.html')
+    from flask import make_response
+    resp = make_response(render_template('dashboard.html'))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 
 @app.route('/api/analyze-stocks')
@@ -440,13 +458,21 @@ def api_analyze_stocks():
 
 @app.route('/api/analyze-options')
 def api_analyze_options():
-    """API endpoint for options analysis"""
+    """API endpoint for options analysis — returns cached result if available."""
+    global _latest_analysis_result
+    # 1. Return cached result instantly (avoids duplicate NSE call racing with background thread)
+    with _latest_analysis_lock:
+        cached = _latest_analysis_result
+    if cached is not None:
+        return jsonify(cached)
+    # 2. No cache yet — do a fresh fetch (only happens on first call before thread fires)
     try:
-        data = fetch_nifty_option_chain(expiry)
-        analyzer = NiftyTrendAnalyzer(data)
-        result = analyzer.generate_composite_signal()
+        result = _run_option_analysis()
+        with _latest_analysis_lock:
+            _latest_analysis_result = result
         return jsonify(result)
     except Exception as e:
+        print(f"api_analyze_options error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -505,6 +531,47 @@ def api_pcr_by_expiry():
             return jsonify(out)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/strategy')
+def api_strategy():
+    """Compute and return strategy recommendation from cached analysis data."""
+    from strategy import compute_strategy
+
+    with _latest_analysis_lock:
+        analysis = _latest_analysis_result
+    if analysis is None:
+        return jsonify({'error': 'No analysis data available yet — please wait for background thread.'}), 503
+
+    with _latest_stocks_lock:
+        stocks = _latest_stocks_result
+    mkt_trend = ''
+    breadth = 50.0
+    if stocks:
+        mkt_trend = (stocks.get('trend') or {}).get('trend') or ''
+        breadth = float((stocks.get('insights') or {}).get('breadth_ratio') or 50)
+
+    # Derive PCR trend from last 2 stored trend entries
+    pcr_trend = 'stable'
+    try:
+        recent = trend_storage.read_recent_trends(2)
+        if len(recent) >= 2:
+            p0 = float(recent[0].get('pcr_oi') or 0)
+            p1 = float(recent[1].get('pcr_oi') or 0)
+            if p0 > p1:
+                pcr_trend = 'rising'
+            elif p0 < p1:
+                pcr_trend = 'falling'
+    except Exception:
+        pass
+
+    try:
+        result = compute_strategy(analysis, mkt_trend=mkt_trend, breadth=breadth, pcr_trend=pcr_trend)
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/get-trends')
