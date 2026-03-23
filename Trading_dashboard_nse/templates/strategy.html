@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nifty — Strategy Recommendations</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark-bg: #1a1f3a;
+            --card-bg: #252d4a;
+            --accent: #00bfff;
+            --success: #4CAF50;
+            --warning: #FFA500;
+            --danger: #FF6B6B;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8d4;
+            --border: #3a4563;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            padding: 14px;
+            min-height: 100vh;
+        }
+
+        /* ── Header bar ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 18px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .page-header h1 {
+            font-size: 1.2em;
+            color: var(--accent);
+            font-weight: 800;
+        }
+
+        .page-header .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .last-updated {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .btn {
+            padding: 7px 14px;
+            background: var(--accent);
+            border: none;
+            color: var(--dark-bg);
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Grid ── */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .metric-value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .metric-item { font-size: 12px; }
+
+        /* ── Context strip ── */
+        .context-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ctx-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        /* ── Table ── */
+        .table-compact {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        .table-compact th {
+            background: rgba(0,191,255,0.1);
+            padding: 6px;
+            text-align: left;
+            color: var(--accent);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+        .table-compact td {
+            padding: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+        }
+        .table-compact tr:hover td { background: rgba(0,191,255,0.05); }
+
+        /* ── Loading / Error ── */
+        #strat-nodata {
+            padding: 30px;
+            text-align: center;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 0.9s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Auto-refresh indicator ── */
+        .refresh-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            margin-right: 6px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .refresh-dot.loading { background: #FFA500; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="page-header">
+    <h1>⚔️ Nifty Strategy Recommendations</h1>
+    <div class="header-right">
+        <span id="last-updated" class="last-updated">—</span>
+        <span class="refresh-dot" id="refresh-dot"></span>
+        <button class="btn" onclick="loadStrategy()">🔄 Refresh</button>
+        <a href="/" style="text-decoration:none;">
+            <button class="btn btn-ghost">⬅ Dashboard</button>
+        </a>
+    </div>
+</div>
+
+<!-- ── Context strip ── -->
+<div class="context-strip" id="context-strip">
+    <div class="ctx-card">
+        <div class="metric-label">Spot</div>
+        <div class="metric-value" id="strat-c-spot">-</div>
+    </div>
+    <div class="ctx-card" style="border-left:2px solid #00bfff;">
+        <div class="metric-label">Nifty Futures</div>
+        <div class="metric-value" id="strat-c-fut" style="color:#00bfff;">-</div>
+        <div style="font-size:10px;" id="strat-c-fut-chg">-</div>
+        <div style="font-size:9px;color:var(--text-secondary);" id="strat-c-fut-basis">-</div>
+        <div style="font-size:9px;color:var(--text-secondary);" id="strat-c-fut-exp">-</div>
+    </div>
+    <div class="ctx-card">
+        <div class="metric-label">Max Pain</div>
+        <div class="metric-value" id="strat-c-maxpain">-</div>
+        <div style="font-size:10px;" id="strat-c-mpdist">-</div>
+    </div>
+    <div class="ctx-card">
+        <div class="metric-label">PCR (OI)</div>
+        <div class="metric-value" id="strat-c-pcr">-</div>
+        <div style="font-size:10px;" id="strat-c-pcrsig">-</div>
+    </div>
+    <div class="ctx-card">
+        <div class="metric-label">ATM IV</div>
+        <div class="metric-value" id="strat-c-iv">-</div>
+        <div style="font-size:10px;" id="strat-c-ivsig">-</div>
+    </div>
+    <div class="ctx-card">
+        <div class="metric-label">Signal</div>
+        <div class="metric-value" id="strat-c-signal" style="font-size:1.0em;">-</div>
+    </div>
+    <div class="ctx-card">
+        <div class="metric-label">Mkt Trend</div>
+        <div class="metric-value" id="strat-c-mkt" style="font-size:0.95em;">-</div>
+        <div style="font-size:10px;" id="strat-c-breadth">-</div>
+    </div>
+</div>
+
+<!-- ── Loading / error notice ── -->
+<div id="strat-nodata">
+    <div class="spinner"></div>
+    Loading strategy data…
+</div>
+
+<!-- ── Strategy cards grid ── -->
+<div class="grid" id="strat-grid">
+
+    <!-- Primary Strategy Card -->
+    <div class="card" id="strat-primary-card" style="grid-column: 1 / -1; border-left:4px solid var(--accent);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+            <div style="flex:1; min-width:220px;">
+                <div class="card-header">🎯 Primary Strategy</div>
+                <div id="strat-p-name" style="font-size:1.7em; font-weight:800; color:var(--accent); margin-bottom:4px;">-</div>
+                <div id="strat-p-setup" style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">-</div>
+                <div id="strat-p-rationale" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">-</div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; min-width:240px;">
+                <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
+                    <div class="metric-label">Risk Level</div>
+                    <div class="metric-value" id="strat-p-risk" style="font-size:1.0em;">-</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
+                    <div class="metric-label">Max Loss</div>
+                    <div class="metric-value" id="strat-p-maxloss" style="font-size:0.95em;">-</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
+                    <div class="metric-label">Target</div>
+                    <div class="metric-value" id="strat-p-target" style="font-size:0.95em; color:#4CAF50;">-</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;">
+                    <div class="metric-label">Entry Tip</div>
+                    <div class="metric-value" id="strat-p-entry" style="font-size:0.85em;">-</div>
+                </div>
+            </div>
+        </div>
+        <div id="strat-p-avoid" style="margin-top:8px; padding:6px 10px; background:rgba(255,107,107,0.06); border-left:3px solid rgba(255,107,107,0.4); border-radius:4px; font-size:11px; color:#FF6B6B;">-</div>
+    </div>
+
+    <!-- Strike Matrix -->
+    <div class="card" style="grid-column: 1 / -1;">
+        <div class="card-header">📊 Strike Matrix — Key Levels</div>
+        <div style="overflow-x:auto;">
+            <table class="table-compact">
+                <thead>
+                    <tr>
+                        <th>Strike</th><th>Pos vs ATM</th><th>CE OI</th><th>PE OI</th><th>CE IV%</th><th>PE IV%</th><th>Significance</th>
+                    </tr>
+                </thead>
+                <tbody id="strat-strike-matrix">
+                    <tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CE Leg -->
+    <div class="card" id="strat-ce-card">
+        <div class="card-header" style="color:#00bfff;">📘 CE (Call) Leg</div>
+        <div id="strat-ce-action" style="font-size:1.3em; font-weight:800; margin-bottom:4px;">-</div>
+        <div class="card-row">
+            <div class="metric-item">
+                <div class="metric-label">Strike</div>
+                <div class="metric-value" id="strat-ce-strike" style="font-size:1.4em; color:var(--accent);">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Position</div>
+                <div class="metric-value" id="strat-ce-pos" style="font-size:1.0em;">-</div>
+            </div>
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:var(--text-secondary);" id="strat-ce-note">-</div>
+    </div>
+
+    <!-- PE Leg -->
+    <div class="card" id="strat-pe-card">
+        <div class="card-header" style="color:#FF6B6B;">📕 PE (Put) Leg</div>
+        <div id="strat-pe-action" style="font-size:1.3em; font-weight:800; margin-bottom:4px;">-</div>
+        <div class="card-row">
+            <div class="metric-item">
+                <div class="metric-label">Strike</div>
+                <div class="metric-value" id="strat-pe-strike" style="font-size:1.4em; color:#FF6B6B;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Position</div>
+                <div class="metric-value" id="strat-pe-pos" style="font-size:1.0em;">-</div>
+            </div>
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:var(--text-secondary);" id="strat-pe-note">-</div>
+    </div>
+
+    <!-- OI Buildup Strategy -->
+    <div class="card">
+        <div class="card-header" style="color:#4CAF50;">📊 OI Buildup Strategy</div>
+        <div id="strat-oi-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+        <div id="strat-oi-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+        <div style="background:rgba(76,175,80,0.04); padding:6px 8px; border-radius:4px;">
+            <div class="metric-label">Suggested Action</div>
+            <div id="strat-oi-action" style="font-size:12px; font-weight:600;">-</div>
+        </div>
+    </div>
+
+    <!-- PCR & Volume Strategy -->
+    <div class="card">
+        <div class="card-header" style="color:#00bfff;">📈 PCR &amp; Volume Strategy</div>
+        <div id="strat-pcr-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+        <div id="strat-pcr-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+        <div style="background:rgba(0,191,255,0.04); padding:6px 8px; border-radius:4px;">
+            <div class="metric-label">Suggested Action</div>
+            <div id="strat-pcr-action" style="font-size:12px; font-weight:600;">-</div>
+        </div>
+    </div>
+
+    <!-- Max Pain Strategy -->
+    <div class="card">
+        <div class="card-header" style="color:#FFA500;">🧭 Max Pain Strategy</div>
+        <div id="strat-mp-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+        <div id="strat-mp-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+        <div style="background:rgba(255,165,0,0.04); padding:6px 8px; border-radius:4px;">
+            <div class="metric-label">Suggested Action</div>
+            <div id="strat-mp-action" style="font-size:12px; font-weight:600;">-</div>
+        </div>
+    </div>
+
+    <!-- Signal Confluence -->
+    <div class="card">
+        <div class="card-header">🧠 Signal Confluence</div>
+        <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap;">
+            <div style="font-size:11px; color:var(--text-secondary);">Bull:</div>
+            <div id="strat-bull-bar" style="height:10px; background:#4CAF50; border-radius:3px; width:0; min-width:4px;"></div>
+            <div id="strat-bull-score" style="font-size:12px; font-weight:700; color:#4CAF50;">0</div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-left:8px;">Bear:</div>
+            <div id="strat-bear-bar" style="height:10px; background:#FF6B6B; border-radius:3px; width:0; min-width:4px;"></div>
+            <div id="strat-bear-score" style="font-size:12px; font-weight:700; color:#FF6B6B;">0</div>
+        </div>
+        <div id="strat-reasons" style="font-size:11px; line-height:1.8;">-</div>
+    </div>
+
+    <!-- Go / No-Go Checklist -->
+    <div class="card">
+        <div class="card-header">✅ Trade Go / No-Go Checklist</div>
+        <div id="strat-checklist" style="font-size:12px; line-height:2.0;">-</div>
+    </div>
+
+    <!-- Alternative Strategy 1 -->
+    <div class="card" id="strat-alt1-card">
+        <div class="card-header">💡 Alternative Strategy 1</div>
+        <div id="strat-alt1-name" style="font-size:1.1em; font-weight:700; margin-bottom:4px;">-</div>
+        <div id="strat-alt1-setup" style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">-</div>
+        <div id="strat-alt1-why" style="font-size:11px; color:var(--text-secondary);">-</div>
+    </div>
+
+    <!-- Alternative Strategy 2 -->
+    <div class="card" id="strat-alt2-card">
+        <div class="card-header">💡 Alternative Strategy 2</div>
+        <div id="strat-alt2-name" style="font-size:1.1em; font-weight:700; margin-bottom:4px;">-</div>
+        <div id="strat-alt2-setup" style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">-</div>
+        <div id="strat-alt2-why" style="font-size:11px; color:var(--text-secondary);">-</div>
+    </div>
+
+</div><!-- /.grid -->
+
+<script>
+    // ── Utilities ──────────────────────────────────────────────────────────────
+    const fmtOI = v => v >= 1e7 ? (v/1e7).toFixed(1)+'Cr' : v >= 1e5 ? (v/1e5).toFixed(1)+'L' : v >= 1000 ? (v/1000).toFixed(1)+'K' : (v || '-');
+    const fmtN  = v => Number.isFinite(v) && v > 0 ? v.toFixed(1)+'%' : '-';
+    const colDir = t => t === 'bull' ? '#4CAF50' : t === 'bear' ? '#FF6B6B' : '#FFA500';
+    const set   = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const setC  = (id, col) => { const el = document.getElementById(id); if (el) el.style.color = col; };
+
+    // ── Populate ───────────────────────────────────────────────────────────────
+    function populate(d) {
+        const ctx     = d.context      || {};
+        const primary = d.primary      || {};
+        const cats    = d.categories   || {};
+        const alts    = d.alternatives || [];
+        const checks  = d.checks       || [];
+        const matrix  = d.strike_matrix || [];
+        const reasons = d.reasons      || [];
+
+        const spot      = Number(ctx.spot       || 0);
+        const maxPain   = Number(ctx.max_pain   || 0);
+        const mpDistPct = Number(ctx.mp_dist_pct || 0);
+        const pcrOI     = Number(ctx.pcr_oi     || 1);
+        const pcrTrend  = ctx.pcr_trend  || 'stable';
+        const atmIV     = Number(ctx.atm_iv     || 0);
+        const highVol   = !!ctx.high_vol;
+        const lowVol    = !!ctx.low_vol;
+        const finalSig  = ctx.final_sig  || '';
+        const mktTrend  = ctx.mkt_trend  || '';
+        const breadth   = Number(ctx.breadth    || 50);
+        const bullScore = Number(ctx.bull_score || 0);
+        const bearScore = Number(ctx.bear_score || 0);
+
+        // Context strip
+        set('strat-c-spot',    spot > 0 ? spot.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '-');
+        set('strat-c-maxpain', maxPain > 0 ? maxPain.toLocaleString() : '-');
+        const mpDistEl = document.getElementById('strat-c-mpdist');
+        if (mpDistEl) {
+            mpDistEl.textContent = maxPain > 0 ? (mpDistPct > 0 ? '+' : '') + mpDistPct.toFixed(1) + '% vs MaxPain' : '';
+            mpDistEl.style.color  = mpDistPct > 0.3 ? '#4CAF50' : mpDistPct < -0.3 ? '#FF6B6B' : '#FFA500';
+        }
+        const pcrEl = document.getElementById('strat-c-pcr');
+        if (pcrEl) {
+            pcrEl.textContent  = pcrOI.toFixed(2);
+            pcrEl.style.color  = pcrOI > 1.2 ? '#4CAF50' : pcrOI < 0.8 ? '#FF6B6B' : '#FFA500';
+        }
+        set('strat-c-pcrsig', pcrTrend === 'rising' ? '⬆ rising' : pcrTrend === 'falling' ? '⬇ falling' : '→ stable');
+        set('strat-c-iv',     atmIV > 0 ? atmIV.toFixed(1) + '%' : '-');
+        const ivSigEl = document.getElementById('strat-c-ivsig');
+        if (ivSigEl) {
+            ivSigEl.textContent = highVol ? '⚡ High Vol' : lowVol ? '😴 Low Vol' : 'Normal';
+            ivSigEl.style.color = highVol ? '#FF6B6B' : lowVol ? '#4CAF50' : '#FFA500';
+        }
+        const sigEl = document.getElementById('strat-c-signal');
+        if (sigEl) {
+            sigEl.textContent = finalSig || '-';
+            sigEl.style.color = finalSig.includes('BULL') ? '#4CAF50' : finalSig.includes('BEAR') ? '#FF6B6B' : '#FFA500';
+        }
+        const mktEl = document.getElementById('strat-c-mkt');
+        if (mktEl) {
+            mktEl.textContent = mktTrend.length > 22 ? mktTrend.substring(0, 20) + '…' : (mktTrend || '-');
+            mktEl.style.color = mktTrend.includes('BULL') ? '#4CAF50' : mktTrend.includes('BEAR') ? '#FF6B6B' : '#FFA500';
+        }
+        set('strat-c-breadth', breadth.toFixed(0) + '% breadth');
+
+        // Primary card
+        const pCard = document.getElementById('strat-primary-card');
+        if (pCard) pCard.style.borderLeftColor = colDir(primary.type);
+        const pNameEl = document.getElementById('strat-p-name');
+        if (pNameEl) { pNameEl.textContent = (primary.icon || '') + ' ' + (primary.name || '-'); pNameEl.style.color = colDir(primary.type); }
+        set('strat-p-setup',    primary.setup     || '-');
+        set('strat-p-rationale',primary.rationale || '-');
+        set('strat-p-risk',     primary.risk      || '-');
+        set('strat-p-maxloss',  primary.maxLoss   || '-');
+        set('strat-p-target',   primary.target    || '-');
+        set('strat-p-entry',    primary.entry     || '-');
+        set('strat-p-avoid',    '⚠ Avoid when: ' + (primary.avoid || '-'));
+
+        // CE leg
+        const ceLeg = primary.ce;
+        if (ceLeg) {
+            const ceActEl = document.getElementById('strat-ce-action');
+            if (ceActEl) { ceActEl.textContent = ceLeg.action + ' — ' + ceLeg.strike + ' CE'; ceActEl.style.color = ceLeg.action === 'BUY' ? '#4CAF50' : '#FF6B6B'; }
+            set('strat-ce-strike', ceLeg.strike);
+            set('strat-ce-pos',    ceLeg.pos);
+            set('strat-ce-note',   ceLeg.note || '');
+            const ceCard = document.getElementById('strat-ce-card');
+            if (ceCard) ceCard.style.borderLeft = '3px solid ' + (ceLeg.action === 'BUY' ? '#4CAF50' : '#FF6B6B');
+        } else {
+            set('strat-ce-action', 'No CE leg for this strategy');
+            set('strat-ce-strike', '-'); set('strat-ce-pos', '-'); set('strat-ce-note', '');
+        }
+
+        // PE leg
+        const peLeg = primary.pe;
+        if (peLeg) {
+            const peActEl = document.getElementById('strat-pe-action');
+            if (peActEl) { peActEl.textContent = peLeg.action + ' — ' + peLeg.strike + ' PE'; peActEl.style.color = peLeg.action === 'BUY' ? '#4CAF50' : '#FF6B6B'; }
+            set('strat-pe-strike', peLeg.strike);
+            set('strat-pe-pos',    peLeg.pos);
+            set('strat-pe-note',   peLeg.note || '');
+            const peCard = document.getElementById('strat-pe-card');
+            if (peCard) peCard.style.borderLeft = '3px solid ' + (peLeg.action === 'BUY' ? '#4CAF50' : '#FF6B6B');
+        } else {
+            set('strat-pe-action', 'No PE leg for this strategy');
+            set('strat-pe-strike', '-'); set('strat-pe-pos', '-'); set('strat-pe-note', '');
+        }
+
+        // Strike matrix
+        const matrixTbody = document.getElementById('strat-strike-matrix');
+        if (matrixTbody) {
+            matrixTbody.innerHTML = matrix.map(m => {
+                const isAtm = m.offset === 0;
+                const isLeg = (ceLeg && ceLeg.strike === m.strike) || (peLeg && peLeg.strike === m.strike);
+                const rowSty = isAtm ? 'background:rgba(0,191,255,0.08);' : isLeg ? 'background:rgba(255,165,0,0.06);' : '';
+                const posLbl = m.offset === 0 ? 'ATM' : (m.offset > 0 ? '+' + m.offset + ' OTM' : m.offset + ' OTM');
+                return `<tr style="${rowSty}">
+                    <td><strong>${m.strike}</strong></td>
+                    <td style="color:var(--text-secondary);">${posLbl}</td>
+                    <td>${fmtOI(m.ce_oi)}</td>
+                    <td>${fmtOI(m.pe_oi)}</td>
+                    <td>${fmtN(m.ce_iv)}</td>
+                    <td>${fmtN(m.pe_iv)}</td>
+                    <td style="font-size:11px;">${m.label || ''}</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);">No data</td></tr>';
+        }
+
+        // Category strategies
+        const mp  = cats.max_pain || {};
+        const oi  = cats.oi       || {};
+        const pcr = cats.pcr      || {};
+        set('strat-mp-strat',   mp.strat   || '-');  set('strat-mp-desc',   mp.desc   || '-');  set('strat-mp-action',   mp.action   || '-');
+        set('strat-oi-strat',   oi.strat   || '-');  set('strat-oi-desc',   oi.desc   || '-');  set('strat-oi-action',   oi.action   || '-');
+        set('strat-pcr-strat',  pcr.strat  || '-');  set('strat-pcr-desc',  pcr.desc  || '-');  set('strat-pcr-action',  pcr.action  || '-');
+
+        // Confluence bars
+        const maxScr = Math.max(bullScore + bearScore, 1);
+        set('strat-bull-score', bullScore);
+        set('strat-bear-score', bearScore);
+        const bbEl = document.getElementById('strat-bull-bar'); if (bbEl) bbEl.style.width = (bullScore / maxScr * 140) + 'px';
+        const brEl = document.getElementById('strat-bear-bar'); if (brEl) brEl.style.width = (bearScore / maxScr * 140) + 'px';
+        const rsEl = document.getElementById('strat-reasons');
+        if (rsEl) rsEl.innerHTML = reasons.map(r =>
+            `<span style="color:${r.dir==='bull'?'#4CAF50':'#FF6B6B'}; margin-right:8px;">${r.dir==='bull'?'▲':'▼'} ${r.txt}</span><br>`
+        ).join('') || '-';
+
+        // Checklist
+        const checkEl = document.getElementById('strat-checklist');
+        if (checkEl) {
+            checkEl.innerHTML = checks.map(c =>
+                `<div style="color:${c.pass?'#4CAF50':'#FF6B6B'};">${c.pass?'✅':'❌'} ${c.label} <span style="color:var(--text-secondary);font-size:10px;">(${c.note})</span></div>`
+            ).join('');
+            const gr = d.go_ratio || 0;
+            const goEl = document.createElement('div');
+            goEl.style.cssText = 'margin-top:8px;padding:6px 10px;border-radius:4px;font-weight:700;font-size:12px;';
+            goEl.style.background = gr >= 0.75 ? 'rgba(76,175,80,0.15)' : gr >= 0.5 ? 'rgba(255,165,0,0.12)' : 'rgba(255,107,107,0.12)';
+            goEl.style.color      = gr >= 0.75 ? '#4CAF50' : gr >= 0.5 ? '#FFA500' : '#FF6B6B';
+            goEl.textContent      = (gr >= 0.75 ? '✅ ' : gr >= 0.5 ? '⚠️ ' : '🚫 ') + (d.go_verdict || '');
+            checkEl.appendChild(goEl);
+        }
+
+        // Alternatives
+        if (alts[0]) { set('strat-alt1-name', alts[0].name); set('strat-alt1-setup', alts[0].setup); set('strat-alt1-why', alts[0].why); }
+        if (alts[1]) { set('strat-alt2-name', alts[1].name); set('strat-alt2-setup', alts[1].setup); set('strat-alt2-why', alts[1].why); }
+    }
+
+    // ── Load strategy from API ─────────────────────────────────────────────────
+    function loadStrategy() {
+        const nodata = document.getElementById('strat-nodata');
+        const dot    = document.getElementById('refresh-dot');
+        if (dot) dot.classList.add('loading');
+        if (nodata) { nodata.style.display = 'block'; nodata.style.color = ''; nodata.innerHTML = '<div class="spinner"></div>Loading strategy data…'; }
+
+        fetch('/api/strategy')
+            .then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || 'HTTP ' + r.status); }); return r.json(); })
+            .then(d => {
+                if (d.error) throw new Error(d.error);
+                if (nodata) nodata.style.display = 'none';
+                if (dot) dot.classList.remove('loading');
+                populate(d);
+                const ts = document.getElementById('last-updated');
+                if (ts) ts.textContent = 'Updated: ' + new Date().toLocaleTimeString();
+            })
+            .catch(err => {
+                if (dot) dot.classList.remove('loading');
+                if (nodata) {
+                    nodata.style.display = 'block';
+                    nodata.style.color = '#FF6B6B';
+                    nodata.innerHTML = '⚠️ Error: <strong>' + err.message + '</strong>' +
+                        '<br><button class="btn" onclick="loadStrategy()" style="margin-top:10px;">🔄 Retry</button>';
+                }
+            });
+    }
+
+    // ── Load Nifty Futures ─────────────────────────────────────────────────────
+    function loadFutures() {
+        fetch('/api/nifty-futures')
+            .then(r => r.json())
+            .then(d => {
+                if (d.error) return;
+                const el      = document.getElementById('strat-c-fut');
+                const chgEl   = document.getElementById('strat-c-fut-chg');
+                const basisEl = document.getElementById('strat-c-fut-basis');
+                const expEl   = document.getElementById('strat-c-fut-exp');
+                if (el) el.textContent = d.last_price != null ? Number(d.last_price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '-';
+                if (chgEl) {
+                    const pct = d.pct_change;
+                    chgEl.textContent = pct != null ? (pct >= 0 ? '+' : '') + Number(pct).toFixed(2) + '%' : '-';
+                    chgEl.style.color = pct > 0 ? '#4CAF50' : pct < 0 ? '#FF6B6B' : '#FFA500';
+                }
+                if (basisEl && d.last_price != null && d.spot != null) {
+                    const basis = Number(d.last_price) - Number(d.spot);
+                    basisEl.textContent = 'Basis: ' + (basis >= 0 ? '+' : '') + basis.toFixed(1);
+                    basisEl.style.color = basis >= 0 ? '#4CAF50' : '#FF6B6B';
+                }
+                if (expEl) expEl.textContent = d.expiry ? 'Exp: ' + d.expiry : '';
+            })
+            .catch(() => {});
+    }
+
+    // ── Boot ───────────────────────────────────────────────────────────────────
+    loadStrategy();
+    loadFutures();
+    // Auto-refresh every 30 seconds
+    setInterval(loadStrategy, 30000);
+    // Futures refresh every 15 seconds
+    setInterval(loadFutures, 15000);
+</script>
+</body>
+</html>

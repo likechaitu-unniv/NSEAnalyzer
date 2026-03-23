@@ -451,6 +451,12 @@ def index():
     return render_template('dashboard.html')
 
 
+@app.route('/strategy')
+def strategy_page():
+    """Standalone strategy recommendations page"""
+    return render_template('strategy.html')
+
+
 @app.route('/api/analyze-stocks')
 def api_analyze_stocks():
     """API endpoint for stock analysis"""
