@@ -9,6 +9,7 @@ from Analyzer import NiftyTrendAnalyzer, fetch_nifty_option_chain
 from trend_storage import TrendStorage
 from utils import fetch_india_vix, fetch_available_expiries, fetch_nifty_futures
 from utils import fetch_nifty_option_chain
+import os
 import threading
 import time
 import requests
@@ -454,7 +455,32 @@ def index():
 @app.route('/strategy')
 def strategy_page():
     """Standalone strategy recommendations page"""
-    return render_template('strategy.html')
+    return render_template('strategy.html', active_page='strategy')
+
+
+@app.route('/stocks')
+def stocks_page():
+    return render_template('stocks.html', active_page='stocks')
+
+
+@app.route('/options')
+def options_page():
+    return render_template('options.html', active_page='options')
+
+
+@app.route('/greeks')
+def greeks_page():
+    return render_template('greeks.html', active_page='greeks')
+
+
+@app.route('/trends')
+def trends_page():
+    return render_template('trends.html', active_page='trends')
+
+
+@app.route('/guide')
+def guide_page():
+    return render_template('guide.html', active_page='guide')
 
 
 @app.route('/api/analyze-stocks')
@@ -663,12 +689,20 @@ def api_nifty_futures():
 def api_get_guide():
     """API endpoint to serve the TRENDS_GUIDE.md file"""
     try:
-        with open('TRENDS_GUIDE.md', 'r', encoding='utf-8') as f:
-            guide_content = f.read()
-        return jsonify({
-            'success': True,
-            'content': guide_content
-        })
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(base_dir, 'TRENDS_GUIDE.md'),
+            os.path.join(base_dir, 'README.md'),
+        ]
+        guide_content = None
+        for path in candidates:
+            if os.path.isfile(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    guide_content = f.read()
+                break
+        if guide_content is None:
+            guide_content = '# Guide\n\nNo guide file found. Create `TRENDS_GUIDE.md` in the app directory to show content here.'
+        return jsonify({'success': True, 'content': guide_content})
     except Exception as e:
         print(f"[ERROR] Error reading guide: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

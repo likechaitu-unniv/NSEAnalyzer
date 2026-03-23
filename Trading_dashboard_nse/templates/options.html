@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis — Nifty Dashboard{% endblock %}
+
+{% block content %}
+<div id="options-loading" class="loading">
+    <div class="spinner"></div>
+    <p>Connecting to market data...</p>
+</div>
+<div id="options-content" class="hidden">
+    <!-- OPTIONS ANALYSIS SECTION -->
+    <div style="margin-bottom: 24px;">
+        <h3 style="margin: 0 0 12px 0; padding: 12px 16px; background: rgba(0,191,255,0.15); border-left: 4px solid var(--accent); border-radius: 4px; font-size: 1.2em;">📊 Options Analysis</h3>
+        <div class="dashboard-grid">
+            <div class="card" style="grid-column: 1 / 2;">
+                <div class="card-header">🎯 Intraday Signal</div>
+                <div class="card-value" id="options-signal" style="color: var(--accent);">-</div>
+                <div class="card-subtitle" id="options-action">-</div>
+                <div class="signal-badge signal-neutral" id="options-signal-badge">SIGNAL</div>
+                <div class="metric-item" style="margin-top: 12px;">
+                    <div class="metric-label">Confidence</div>
+                    <div class="metric-value" id="options-confidence">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📊 PCR Analysis</div>
+                <div class="card-value" id="options-pcr">-</div>
+                <div class="card-subtitle">Put-Call Ratio</div>
+                <div class="signal-badge signal-neutral" id="options-pcr-signal">-</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">💰 Max Pain</div>
+                <div class="card-value" id="options-max-pain">-</div>
+                <div class="card-subtitle">Strike Level</div>
+                <div class="metric-item" style="margin-top: 8px;">
+                    <div class="metric-label">Current Price</div>
+                    <div class="metric-value" id="options-spot" style="font-size: 1.3em;">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📈 OI Buildup</div>
+                <div id="options-oi-pattern" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                <div class="signal-badge signal-neutral" id="options-oi-signal">-</div>
+                <div class="card-row" style="margin-top: 12px;">
+                    <div class="metric-item">
+                        <div class="metric-label">Call OI</div>
+                        <div class="metric-value" id="options-call-oi" style="font-size: 1.1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Put OI</div>
+                        <div class="metric-value" id="options-put-oi" style="font-size: 1.1em;">-</div>
+                    </div>
+                </div>
+                <div class="card-row" style="margin-top: 12px;">
+                    <div class="metric-item">
+                        <div class="metric-label">CE Buildup</div>
+                        <div class="metric-value" id="options-ce-buildup" style="font-size: 0.95em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">PE Buildup</div>
+                        <div class="metric-value" id="options-pe-buildup" style="font-size: 0.95em;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">⚖️ Market Pressure</div>
+                <div id="options-pressure" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                <div class="signal-badge signal-neutral" id="options-pressure-signal">-</div>
+                <div class="metric-item" style="margin-top: 12px;">
+                    <div class="metric-label">Net Pressure</div>
+                    <div class="metric-value" id="options-net-pressure" style="font-size: 1.2em;">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📊 Volatility</div>
+                <div class="card-row">
+                    <div class="metric-item">
+                        <div class="metric-label">ATM IV</div>
+                        <div class="metric-value" id="options-atm-iv">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Skew</div>
+                        <div class="metric-value" id="options-skew">-</div>
+                    </div>
+                </div>
+                <div class="card-row" style="margin-top: 8px;">
+                    <div class="metric-item">
+                        <div class="metric-label">CE IV</div>
+                        <div class="metric-value" id="options-ce-iv" style="font-size: 1em;">-</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">PE IV</div>
+                        <div class="metric-value" id="options-pe-iv" style="font-size: 1em;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">🎯 Key Levels</div>
+                <div class="metric-item" style="margin-bottom: 8px;">
+                    <div class="metric-label">Resistance</div>
+                    <div class="metric-value" id="options-resistance" style="font-size: 1.3em;">-</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Support</div>
+                    <div class="metric-value" id="options-support" style="font-size: 1.3em;">-</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📋 Summary</div>
+                <div class="list-item">
+                    <span class="list-label">Overall PCR</span>
+                    <span class="list-value" id="options-overall-pcr">-</span>
+                </div>
+                <div class="list-item">
+                    <span class="list-label">PCR Volume</span>
+                    <span class="list-value" id="options-pcr-volume">-</span>
+                </div>
+                <div class="list-item">
+                    <span class="list-label">Updated</span>
+                    <span class="list-value" id="options-timestamp" style="font-size: 11px;">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Options Chain Table -->
+        <div class="card" style="grid-column: 1 / -1; margin-top: 12px;">
+            <div class="card-header">📊 Options Chain Details</div>
+            <div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto;" id="options-column-toggles"></div>
+            <div style="overflow-x: auto;">
+                <table class="table-compact">
+                    <thead id="options-table-head"><tr></tr></thead>
+                    <tbody id="options-table-body">
+                        <tr><td colspan="11" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TREND ANALYSIS SECTION -->
+    <div>
+        <h3 style="margin: 0 0 12px 0; padding: 12px 16px; background: rgba(76,175,80,0.15); border-left: 4px solid #4CAF50; border-radius: 4px; font-size: 1.2em;">🔄 Trend Analysis</h3>
+        <div class="dashboard-grid">
+            <div class="card" style="grid-column: 1 / 2;">
+                <div class="card-header">🎯 Trend Signal</div>
+                <div class="card-value" id="trend-signal" style="color: var(--accent);">-</div>
+                <div class="card-subtitle" id="trend-action">-</div>
+                <div class="signal-badge signal-neutral" id="trend-badge">SIGNAL</div>
+                <div class="metric-item" style="margin-top: 12px;">
+                    <div class="metric-label">Confidence</div>
+                    <div class="metric-value" id="trend-confidence">-</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">💰 Max Pain</div>
+                <div class="card-value" id="trend-max-pain">-</div>
+                <div class="signal-badge signal-neutral" id="trend-max-pain-signal">-</div>
+                <div class="metric-item" style="margin-top: 12px;">
+                    <div class="metric-label">Distance</div>
+                    <div class="metric-value" id="trend-max-pain-dist" style="font-size: 1.1em;">-</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">📈 OI Buildup</div>
+                <div id="trend-oi" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                <div class="signal-badge signal-neutral" id="trend-oi-signal">-</div>
+            </div>
+            <div class="card">
+                <div class="card-header">⚖️ Pressure</div>
+                <div id="trend-pressure" style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px;">-</div>
+                <div class="signal-badge signal-neutral" id="trend-pressure-signal">-</div>
+            </div>
+            <div class="card">
+                <div class="card-header">📊 Volatility</div>
+                <div class="metric-item">
+                    <div class="metric-label">ATM IV</div>
+                    <div class="metric-value" id="trend-iv">-</div>
+                </div>
+                <div class="metric-item" style="margin-top: 8px;">
+                    <div class="metric-label">Signal</div>
+                    <div class="metric-value" id="trend-iv-signal" style="font-size: 1em;">-</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">📈 Resistance Levels</div>
+                <div id="trend-resistances" style="font-size: 11px;">
+                    <div class="list-item"><span class="list-label">Loading...</span></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">📉 Support Levels</div>
+                <div id="trend-supports" style="font-size: 11px;">
+                    <div class="list-item"><span class="list-label">Loading...</span></div>
+                </div>
+            </div>
+
+            <!-- PCR by Expiry -->
+            <div class="card" style="padding: 12px;">
+                <div class="card-header">🗓️ PCR by Expiry (NIFTY)</div>
+                <div style="overflow-x:auto;">
+                    <table class="table-compact pcr-compact" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Expiry Date</th>
+                                <th>Overall PCR (OI)</th>
+                                <th>PCR ±5 Strikes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pcr-expiries-body">
+                            <tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Options Chain ±12 strikes -->
+            <div class="card" style="padding: 12px;">
+                <div class="card-header">📊 Options Chain Details (±12 Strikes)</div>
+                <div style="overflow-x:auto; max-height:360px;">
+                    <table class="table-compact pcr-compact" style="width:100%; table-layout:fixed;">
+                        <thead>
+                            <tr>
+                                <th style="width:30%">Strike</th>
+                                <th style="width:35%">CE Buildup</th>
+                                <th style="width:35%">PE Buildup</th>
+                            </tr>
+                        </thead>
+                        <tbody id="options-chain-body">
+                            <tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentData = null;
+    let receivedData = false;
+
+    // Options chain column state
+    const optionsColumnLabels = {
+        'strike': 'Strike', 'ce_ltp': 'CE LTP', 'ce_spot_distance': 'CE Spot Dist',
+        'ce_spot_distance_pct': 'CE Dist %', 'ce_oi': 'CE OI', 'ce_iv': 'CE IV',
+        'ce_chg': 'CE Chg', 'pe_chg': 'PE Chg', 'pe_ltp': 'PE LTP',
+        'pe_spot_distance': 'PE Spot Dist', 'pe_spot_distance_pct': 'PE Dist %',
+        'pe_iv': 'PE IV', 'pe_oi': 'PE OI', 'ce_buildup_type': 'CE Buildup', 'pe_buildup_type': 'PE Buildup'
+    };
+    let optionsColumnOrder = Object.keys(optionsColumnLabels);
+    let optionsSelectedColumns = new Set(optionsColumnOrder);
+
+    function createOptionsColumnToggles() {
+        const container = document.getElementById('options-column-toggles');
+        container.innerHTML = '';
+        optionsColumnOrder.forEach(key => {
+            const label = document.createElement('label');
+            label.style.cssText = 'background:rgba(0,191,255,0.15);padding:4px 8px;border-radius:4px;font-size:11px;border:1px solid var(--border);cursor:pointer;';
+            label.innerHTML = `<input type="checkbox" ${optionsSelectedColumns.has(key) ? 'checked' : ''} onchange="toggleOptionsColumn('${key}')" style="margin-right:4px;"> ${optionsColumnLabels[key]}`;
+            container.appendChild(label);
+        });
+    }
+
+    function toggleOptionsColumn(key) {
+        if (optionsSelectedColumns.has(key)) optionsSelectedColumns.delete(key);
+        else optionsSelectedColumns.add(key);
+        renderOptionsTable();
+    }
+
+    function renderOptionsTable() {
+        if (!currentData || !currentData.rows) return;
+        const visibleOrder = optionsColumnOrder.filter(key => optionsSelectedColumns.has(key));
+        document.getElementById('options-table-head').innerHTML = '<tr>' + visibleOrder.map(key => `<th>${optionsColumnLabels[key]}</th>`).join('') + '</tr>';
+        document.getElementById('options-table-body').innerHTML = currentData.rows.map(row => {
+            return '<tr>' + visibleOrder.map(key => {
+                let val = row[key] ?? '--';
+                let color = '';
+                if (key === 'strike') { color = 'font-weight: bold; color: var(--accent);'; }
+                else if (['ce_chg', 'pe_chg'].includes(key)) {
+                    const num = parseFloat(String(val).replace('%', ''));
+                    if (!isNaN(num)) color = num > 0 ? 'color: #4CAF50;' : num < 0 ? 'color: #FF6B6B;' : '';
+                } else if (['ce_buildup_type', 'pe_buildup_type'].includes(key)) {
+                    const greenTypes = ['Put Long Cover', 'Put Writing', 'Call Short Cover', 'Call Buying'];
+                    const redTypes = ['Call Long Cover', 'Call Writing', 'Put Short Cover', 'Put Buying'];
+                    if (greenTypes.includes(val)) color = 'color: #4CAF50; font-weight: bold;';
+                    else if (redTypes.includes(val)) color = 'color: #FF6B6B; font-weight: bold;';
+                    else if (val !== '--' && val !== 'Neutral') color = 'color: #FFA500; font-weight: bold;';
+                }
+                return `<td style="${color}">${val}</td>`;
+            }).join('') + '</tr>';
+        }).join('');
+    }
+
+    function displayOptionsData(data) {
+        const optionsLoading = document.getElementById('options-loading');
+        const optionsContent = document.getElementById('options-content');
+        if (!optionsLoading || !optionsContent) return;
+        try {
+            document.getElementById('options-signal').textContent = data.final_signal;
+            const optConf = Number(data.confidence || 0);
+            document.getElementById('options-confidence').textContent = optConf + '%';
+            const optionsActionElem = document.getElementById('options-action');
+            if (optionsActionElem) {
+                if (optConf < 30) { optionsActionElem.style.color = 'var(--text-secondary)'; optionsActionElem.textContent = 'Signal too weak to act — follow market trend and risk rules'; }
+                else if (optConf < 40) { optionsActionElem.style.color = 'var(--text-secondary)'; optionsActionElem.textContent = `${data.action} — Low confidence`; }
+                else { optionsActionElem.style.color = ''; optionsActionElem.textContent = data.action; }
+            }
+            const badge = document.getElementById('options-signal-badge');
+            badge.className = 'signal-badge';
+            if (data.final_signal.includes('BULLISH')) badge.classList.add('signal-bullish');
+            else if (data.final_signal.includes('BEARISH')) badge.classList.add('signal-bearish');
+            else badge.classList.add('signal-neutral');
+            badge.textContent = data.final_signal;
+
+            const pcr = data.pcr_analysis;
+            document.getElementById('options-pcr').textContent = pcr.pcr_oi;
+            const pcrSig = document.getElementById('options-pcr-signal');
+            pcrSig.className = 'signal-badge';
+            if (pcr.signal.includes('BULLISH')) pcrSig.classList.add('signal-bullish');
+            else if (pcr.signal.includes('BEARISH')) pcrSig.classList.add('signal-bearish');
+            else pcrSig.classList.add('signal-neutral');
+            pcrSig.textContent = pcr.signal;
+
+            const maxPain = data.max_pain_analysis;
+            document.getElementById('options-max-pain').textContent = maxPain.max_pain_strike.toLocaleString();
+            document.getElementById('options-spot').textContent = data.underlying_value.toLocaleString();
+
+            const oi = data.oi_buildup_analysis;
+            document.getElementById('options-oi-pattern').textContent = oi.call_writing > oi.put_writing ? 'Heavy CE' : 'Heavy PE';
+            const oiSig = document.getElementById('options-oi-signal');
+            oiSig.className = 'signal-badge';
+            if (oi.signal.includes('BULLISH')) oiSig.classList.add('signal-bullish');
+            else if (oi.signal.includes('BEARISH')) oiSig.classList.add('signal-bearish');
+            else oiSig.classList.add('signal-neutral');
+            oiSig.textContent = oi.signal;
+            document.getElementById('options-call-oi').textContent = ((data.total_call_oi || 0) / 1000000).toFixed(2) + 'M • Δ ' + ((oi.call_writing || 0) / 1000000).toFixed(2) + 'M';
+            document.getElementById('options-put-oi').textContent = ((data.total_put_oi || 0) / 1000000).toFixed(2) + 'M • Δ ' + ((oi.put_writing || 0) / 1000000).toFixed(2) + 'M';
+            if (oi.ce_buildup_type) { document.getElementById('options-ce-buildup').textContent = oi.ce_buildup_type; }
+            if (oi.pe_buildup_type) { document.getElementById('options-pe-buildup').textContent = oi.pe_buildup_type; }
+
+            const pressure = data.pressure_analysis;
+            document.getElementById('options-pressure').textContent = pressure.net_pressure > 0 ? 'PE > CE' : 'CE > PE';
+            const pressSig = document.getElementById('options-pressure-signal');
+            pressSig.className = 'signal-badge';
+            if (pressure.signal.includes('BULLISH')) pressSig.classList.add('signal-bullish');
+            else if (pressure.signal.includes('BEARISH')) pressSig.classList.add('signal-bearish');
+            else pressSig.classList.add('signal-neutral');
+            pressSig.textContent = pressure.signal;
+            document.getElementById('options-net-pressure').textContent = pressure.net_pressure.toFixed(3);
+
+            const iv = data.iv_analysis;
+            document.getElementById('options-atm-iv').textContent = iv.atm_iv + '%';
+            document.getElementById('options-skew').textContent = (iv.iv_skew > 0 ? '+' : '') + iv.iv_skew + '%';
+            document.getElementById('options-ce-iv').textContent = iv.avg_ce_iv + '%';
+            document.getElementById('options-pe-iv').textContent = iv.avg_pe_iv + '%';
+
+            const levels = data.support_resistance;
+            document.getElementById('options-resistance').textContent = levels.immediate_resistance?.toLocaleString() || '-';
+            document.getElementById('options-support').textContent = levels.immediate_support?.toLocaleString() || '-';
+            document.getElementById('options-overall-pcr').textContent = data.overall_pcr?.toFixed(3) || '-';
+            document.getElementById('options-pcr-volume').textContent = data.overall_pcr_volume?.toFixed(3) || '-';
+            document.getElementById('options-timestamp').textContent = data.timestamp;
+
+            currentData = data;
+            createOptionsColumnToggles();
+            renderOptionsTable();
+
+            optionsLoading.style.display = 'none';
+            optionsContent.classList.remove('hidden');
+        } catch (e) { console.error('Error in displayOptionsData:', e); }
+    }
+
+    function displayTrendData(data) {
+        try {
+            const safeSetContent = (id, value) => { const e = document.getElementById(id); if (e) e.textContent = value; };
+            const safeSetBadge = (id, signalText) => {
+                const e = document.getElementById(id);
+                if (e) { e.className = 'signal-badge'; if (signalText && signalText.includes('BULLISH')) e.classList.add('signal-bullish'); else if (signalText && signalText.includes('BEARISH')) e.classList.add('signal-bearish'); else e.classList.add('signal-neutral'); e.textContent = signalText; }
+            };
+            safeSetContent('trend-signal', data.final_signal);
+            safeSetContent('trend-action', data.action);
+            safeSetContent('trend-confidence', data.confidence + '%');
+            safeSetBadge('trend-badge', data.final_signal);
+            const pcr = data.pcr_analysis;
+            safeSetContent('trend-pcr', pcr.pcr_oi);
+            safeSetBadge('trend-pcr-signal', pcr.signal);
+            try { fetchAndRenderPcrByExpiry(); fetchAndRenderOptionsChain(); } catch (e) {}
+            const maxPain = data.max_pain_analysis;
+            safeSetContent('trend-max-pain', maxPain.max_pain_strike.toLocaleString());
+            safeSetBadge('trend-max-pain-signal', maxPain.signal);
+            safeSetContent('trend-max-pain-dist', maxPain.distance + ' pts');
+            const oi = data.oi_buildup_analysis;
+            safeSetContent('trend-oi', oi.call_writing > oi.put_writing ? 'Heavy CE' : 'Heavy PE');
+            safeSetBadge('trend-oi-signal', oi.signal);
+            const pressure = data.pressure_analysis;
+            safeSetContent('trend-pressure', pressure.net_pressure > 0 ? 'PE > CE' : 'CE > PE');
+            safeSetBadge('trend-pressure-signal', pressure.signal);
+            const iv = data.iv_analysis;
+            safeSetContent('trend-iv', iv.atm_iv + '%');
+            safeSetContent('trend-iv-signal', iv.signal);
+            const levels = data.support_resistance;
+            const re = document.getElementById('trend-resistances');
+            if (re) re.innerHTML = (levels.all_resistance || []).slice(0, 3).map((l, i) => `<div class="list-item"><span class="list-label">R${i+1}: ${l.toLocaleString()}</span></div>`).join('');
+            const se = document.getElementById('trend-supports');
+            if (se) se.innerHTML = (levels.all_support || []).slice(0, 3).map((l, i) => `<div class="list-item"><span class="list-label">S${i+1}: ${l.toLocaleString()}</span></div>`).join('');
+        } catch (e) { console.error('Error in displayTrendData:', e); }
+    }
+
+    function updateGlobalBias(data) {
+        try {
+            const finalSig = (data && data.final_signal) ? data.final_signal : '-';
+            const gbLabel = document.getElementById('global-bias-label');
+            if (gbLabel) { gbLabel.textContent = finalSig; gbLabel.style.color = finalSig.includes('BULL') ? '#4CAF50' : finalSig.includes('BEAR') ? '#FF6B6B' : 'var(--text-primary)'; }
+            const gbSub = document.getElementById('global-bias-sub');
+            if (gbSub) gbSub.textContent = `Conf: ${data.confidence || '-'}% | Action: ${data.action || '-'}`;
+        } catch (e) {}
+    }
+
+    async function fetchNow() {
+        try {
+            const res = await fetch('/api/analyze-options');
+            if (!res.ok) throw new Error('API returned ' + res.status);
+            const payload = await res.json();
+            receivedData = true;
+            currentData = payload;
+            displayOptionsData(payload);
+            displayTrendData(payload);
+            updateGlobalBias(payload);
+        } catch (e) { console.error('fetchNow failed', e); alert('Fetch failed: ' + e.message); }
+    }
+
+    // Socket.IO setup
+    const socket = io();
+    window._socket = socket;
+
+    socket.on('connect', () => { socket.emit('request_analysis'); });
+
+    socket.on('analysis_data', (data) => {
+        currentData = data;
+        receivedData = true;
+        displayOptionsData(data);
+        displayTrendData(data);
+        updateGlobalBias(data);
+    });
+
+    socket.on('current_expiry', (data) => {
+        const parts = data.expiry.split('-');
+        const monthMap = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'};
+        document.getElementById('expiryInput').value = `${parts[2]}-${monthMap[parts[1]]}-${parts[0]}`;
+    });
+
+    // 6-second watchdog fallback
+    setTimeout(async () => {
+        if (!receivedData) {
+            try {
+                const res = await fetch('/api/analyze-options');
+                if (res.ok) {
+                    const payload = await res.json();
+                    receivedData = true; currentData = payload;
+                    displayOptionsData(payload); displayTrendData(payload); updateGlobalBias(payload);
+                }
+            } catch (e) { console.warn('Watchdog fallback failed', e); }
+        }
+    }, 6000);
+</script>
+{% endblock %}

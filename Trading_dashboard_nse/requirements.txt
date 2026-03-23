@@ -24,3 +24,9 @@ scipy==1.11.2
 # pytest==7.4.0
 # black==23.9.1
 # flake8==6.0.0
+
+# Secrets & env
+# Used to securely access platform credentials on the host (Windows Credential Manager)
+keyring>=23.0.0
+# Load .env fallback files
+python-dotenv>=1.0.0

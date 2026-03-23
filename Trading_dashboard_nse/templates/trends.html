@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block title %}Trends &amp; Strategy — Nifty Dashboard{% endblock %}
+
+{% block content %}
+<div id="trends-loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading trend data...</p>
+</div>
+<div id="trends-content" class="hidden">
+    <div class="dashboard-grid">
+        <!-- Market Analysis Card -->
+        <div class="card" style="padding: 12px;">
+            <div class="card-header" style="margin-bottom: 8px; font-size: 1.1em;">🎯 Market Analysis</div>
+            <div class="card-row" style="gap: 12px; flex-direction: column;">
+                <div class="metric-item" style="border-right: none; padding-right: 0;">
+                    <div class="metric-label" style="font-size: 11px;">Market Trend</div>
+                    <div class="metric-value" id="trends-market-trend" style="font-size: 1.3em; margin: 4px 0;">-</div>
+                    <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 6px;">
+                        <div class="metric-label" style="font-size: 11px; margin-bottom: 6px;">Gainers / Losers</div>
+                        <div class="advancers-decliners-bar-container">
+                            <div class="advancers-decliners-bar-track">
+                                <div class="advancers-portion" id="advancers-portion" style="width:50%; background-color:#4CAF50;"><span class="portion-label" style="color:white; font-weight:600;" id="advancers-label">-</span></div>
+                                <div class="decliners-portion" id="decliners-portion" style="width:50%; background-color:#FF6B6B;"><span class="portion-label" style="color:white; font-weight:600;" id="decliners-label">-</span></div>
+                            </div>
+                        </div>
+                        <div class="advancers-decliners-labels">
+                            <div class="bar-label-item" style="text-align:left;">Gainers: <span id="trends-advancers-count" style="color:#4CAF50;">-</span></div>
+                            <div class="bar-label-item" style="text-align:right;">Losers: <span id="trends-decliners-count" style="color:#FF6B6B;">-</span></div>
+                        </div>
+                    </div>
+                    <div class="metric-label" style="font-size:11px; margin-top:8px;">Avg Change</div>
+                    <div style="font-size:12px;" id="trends-avg-change">-</div>
+                </div>
+                <div class="metric-item" style="flex:1; padding-left:0; border-top:1px solid var(--border); padding-top:8px;">
+                    <div class="metric-label" style="font-size:11px;">Intraday Signal</div>
+                    <div class="metric-value" id="trends-primary-signal" style="font-size:1.3em; margin:4px 0;">-</div>
+                    <div class="metric-label" style="font-size:11px;">Confidence</div>
+                    <div style="font-size:12px; margin-bottom:4px;" id="trends-confidence">-</div>
+                    <div class="metric-label" style="font-size:11px;">Action</div>
+                    <div style="font-size:12px;" id="trends-action">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CE vs PE Buildup Card -->
+        <div class="card" style="padding:12px;">
+            <div class="card-header" style="margin-bottom:8px; font-size:1.1em;">⚡ CE vs PE Buildup</div>
+            <div class="card-row" style="gap:12px; flex-direction:column;">
+                <div class="metric-item" style="border-right:none; padding-right:0;">
+                    <div class="metric-label" style="font-size:11px;">Status</div>
+                    <div class="metric-value" id="trends-oi-buildup-signal" style="font-size:1.2em; margin:2px 0;">-</div>
+                    <div style="font-size:10px; color:var(--text-secondary); margin-top:4px;" id="trends-buildup-interpretation">-</div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:8px;">
+                    <div class="metric-label" style="font-size:11px; margin-bottom:6px;">Call Writing / Put Writing</div>
+                    <div class="call-put-bar-container">
+                        <div class="call-put-bar-track">
+                            <div class="call-portion" id="call-portion" style="width:50%; background-color:#FF6B6B;"><span class="portion-label" style="color:white; font-weight:600;" id="call-label">-</span></div>
+                            <div class="put-portion" id="put-portion" style="width:50%; background-color:#4CAF50;"><span class="portion-label" style="color:white; font-weight:600;" id="put-label">-</span></div>
+                        </div>
+                    </div>
+                    <div class="call-put-labels">
+                        <div class="bar-label-item" style="text-align:left;">Call: <span id="trends-call-count" style="color:#FF6B6B;">-</span></div>
+                        <div class="bar-label-item" style="text-align:right;">Put: <span id="trends-put-count" style="color:#4CAF50;">-</span></div>
+                    </div>
+                    <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                        <canvas id="buildup-sparkline" width="140" height="28" style="background:transparent;"></canvas>
+                        <div id="buildup-trend-text" style="font-size:12px; color:var(--text-secondary);">-</div>
+                    </div>
+                </div>
+                <div class="metric-item" style="border-left:none; padding-left:0; border-top:1px solid var(--border); padding-top:8px;">
+                    <div class="metric-label" style="font-size:11px;">Decision</div>
+                    <div class="metric-value" id="trends-derived-decision" style="font-size:1.2em; margin:2px 0;">-</div>
+                    <div style="font-size:10px; color:var(--text-secondary); margin-top:4px;" id="trends-decision-rationale">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PCR Analysis Card -->
+        <div class="card" style="padding:12px;">
+            <div class="card-header" style="margin-bottom:8px; font-size:1.1em;">📊 PCR Analysis (0.7&gt;Neutral&lt;1.4)</div>
+            <div class="card-row" style="gap:12px; flex-direction:column;">
+                <div class="metric-item" style="border-right:none; padding-right:0;">
+                    <div class="metric-label" style="font-size:11px;">Current</div>
+                    <div class="card-value" id="trend-pcr" style="font-size:1.6em; margin:2px 0;">-</div>
+                    <div class="signal-badge signal-neutral" id="trend-pcr-signal" style="font-size:11px; padding:4px 8px;">-</div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:8px;">
+                    <div class="metric-label" style="font-size:11px; margin-bottom:6px;">High / Current / Low</div>
+                    <div class="pcr-bar-container">
+                        <div class="pcr-bar-track" id="pcr-bar-track">
+                            <div class="pcr-bar-fill" id="pcr-bar-fill" style="width:50%;">
+                                <div class="pcr-bar-marker" id="pcr-bar-marker" style="left:50%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pcr-bar-labels">
+                        <div class="pcr-bar-label-item" style="text-align:left;">Low: <span id="pcr-bar-low">-</span></div>
+                        <div class="pcr-bar-label-item" style="text-align:center;">Curr: <span id="pcr-bar-current">-</span></div>
+                        <div class="pcr-bar-label-item" style="text-align:right;">High: <span id="pcr-bar-high">-</span></div>
+                    </div>
+                </div>
+                <div class="metric-item" style="border-right:none; padding-right:0; border-top:1px solid var(--border); padding-top:8px;">
+                    <div class="metric-label" style="font-size:11px;">Direction</div>
+                    <div class="metric-value" id="trend-pcr-direction" style="font-size:1.1em; margin:2px 0;">-</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;" id="trend-pcr-trend">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PCR by Expiry -->
+        <div class="card" style="padding:12px;">
+            <div class="card-header" style="margin-bottom:8px; font-size:1.1em;">🗓️ PCR by Expiry (NIFTY)</div>
+            <div style="overflow-x:auto;">
+                <table class="table-compact pcr-compact" style="width:100%;">
+                    <thead><tr><th>Expiry Date</th><th>Overall PCR (OI)</th><th>PCR ±5 Strikes from Spot</th></tr></thead>
+                    <tbody id="pcr-expiries-body"><tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Options Chain Details (±12 strikes) -->
+        <div class="card" style="padding:12px;">
+            <div class="card-header" style="margin-bottom:8px; font-size:1.1em;">📊 Options Chain Details (±12 Strikes)</div>
+            <div style="overflow-x:auto; max-height:360px;">
+                <table class="table-compact pcr-compact" style="width:100%; table-layout:fixed;">
+                    <thead><tr><th style="width:30%">Strike</th><th style="width:35%">CE Buildup</th><th style="width:35%">PE Buildup</th></tr></thead>
+                    <tbody id="options-chain-body"><tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Fast Moving Options -->
+        <div class="card" style="padding:12px;">
+            <div class="card-header" style="margin-bottom:8px; font-size:1.1em;">🚀 Fast Moving Options (Top 8)</div>
+            <div style="overflow-x:auto;">
+                <table class="table-compact">
+                    <thead><tr><th>Strike</th><th>Type</th><th>Direction</th><th>Gamma</th><th>Delta</th><th>OI</th><th>Use‑case</th><th>IV %</th></tr></thead>
+                    <tbody id="fast-movers-table"><tr><td colspan="8" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
+                <div class="metric-label" style="font-size:11px;">Overall Direction</div>
+                <div class="metric-value" id="fast-movers-direction" style="font-size:1.2em; margin:2px 0;">-</div>
+            </div>
+        </div>
+
+        <!-- PCR Timeframe + Max Pain + Enhanced (3-column) -->
+        <div style="grid-column:1/-1; display:grid; grid-template-columns:1fr 320px 1fr; gap:12px;">
+            <!-- PCR Timeframe -->
+            <div class="card" style="padding:12px;">
+                <div class="card-header" style="margin-bottom:12px; font-size:1.1em;">⏱️ PCR TIMEFRAME CHANGES</div>
+                <div id="pcr-timeframe-note" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Showing changes &gt; |0.02|</div>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;">
+                    {% for tf in ['1min','2min','5min','10min'] %}
+                    <div style="padding:12px; background:rgba(100,100,150,0.1); border-radius:6px; border:1px solid rgba(100,150,255,0.2); text-align:center;">
+                        <div class="metric-label" style="font-size:11px; margin-bottom:8px; text-transform:uppercase;">{{ tf.replace('min',' Minute' if tf == '1min' else ' Minutes') }}</div>
+                        <div style="font-size:1.4em; font-weight:bold; margin-bottom:6px;">
+                            <span id="pcr-{{ tf }}-direction" style="font-size:1.5em;">-</span><br>
+                            <span id="pcr-{{ tf }}-value" style="color:var(--text-primary); font-size:1.2em;">0.0000</span>
+                        </div>
+                        <div style="font-size:10px; color:var(--text-secondary); margin-bottom:8px;"><span id="pcr-{{ tf }}-percent">0.00%</span></div>
+                        <div style="padding:6px 8px; border-radius:4px; background:rgba(255,165,0,0.2); border:1px solid rgba(255,165,0,0.4);">
+                            <div id="pcr-{{ tf }}-badge" style="font-size:11px; font-weight:bold; color:#FFA500;">NO CHANGE</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Max Pain -->
+            <div class="card" style="padding:12px; display:flex; flex-direction:column; justify-content:center;">
+                <div class="card-header" style="margin-bottom:8px; font-size:1.0em;">🧭 Max Pain</div>
+                <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">Current Price</div>
+                        <div class="metric-value" id="trends-maxpain-current">-</div>
+                    </div>
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">Max Pain Strike</div>
+                        <div class="metric-value" id="trends-maxpain-strike">-</div>
+                    </div>
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">Distance</div>
+                        <div class="metric-value" id="trends-maxpain-distance">-</div>
+                        <div style="font-size:11px; color:var(--text-secondary);" id="trends-maxpain-distance-pct">-</div>
+                    </div>
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">Enhanced V2.0 Score</div>
+                        <div class="metric-value" id="enhanced-score">-</div>
+                        <div style="font-size:11px; color:var(--text-secondary);" id="enhanced-decision">-</div>
+                    </div>
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">Enhanced Buckets</div>
+                        <div style="display:flex; gap:8px; margin-top:6px;">
+                            <div style="flex:1; font-size:12px; color:var(--text-secondary);">Directional: <span id="enh-directional-verdict" style="font-weight:700; color:var(--text-primary);">-</span></div>
+                            <div style="flex:1; font-size:12px; color:var(--text-secondary);">Volatility: <span id="enh-volatility-verdict" style="font-weight:700; color:var(--text-primary);">-</span></div>
+                            <div style="flex:1; font-size:12px; color:var(--text-secondary);">Structure: <span id="enh-structure-verdict" style="font-weight:700; color:var(--text-primary);">-</span></div>
+                        </div>
+                    </div>
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.03);">
+                        <div class="metric-label">India VIX</div>
+                        <div class="metric-value" id="trends-vix-value">-</div>
+                        <div style="font-size:11px; color:var(--text-secondary);" id="trends-vix-change">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced V2.0 Factors -->
+            <div class="card" style="padding:12px;">
+                <div class="card-header">🧾 Enhanced V2.0 Factors</div>
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:12px;">
+                    {% for i, label in [('1','Spot vs MaxPain'),('2','PCR (OI)'),('3','IV Skew (PE-CE %)'),('4','Gamma Diff (CE-PE)'),('5','ATM Delta (CE)'),('6','Theta Ratio (|CE|/|PE|)'),('7','VIX / VIX Δ'),('8','Breadth'),('9','Portfolio Vega')] %}
+                    <div style="background:rgba(100,100,150,0.03); padding:8px; border-radius:6px;">
+                        <div class="metric-label">{{ i }}) {{ label }}</div>
+                        <div class="metric-value" id="enh-factor-{{ i }}">-</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- OI by Strike Snapshot -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">📌 OI by Strike (Snapshot)</div>
+            <div class="chart-container" style="height:420px; padding-top:6px;">
+                <canvas id="oiByStrikeChart" style="width:100%; height:100%;"></canvas>
+            </div>
+        </div>
+
+        <!-- Strategy Section Header + Refresh -->
+        <div class="card" style="grid-column:1/-1; padding:12px 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size:1.1em; color:var(--accent);">⚔️ Strategy Recommendations — Based on Live Market Data</h3>
+                <button onclick="buildStrategiesTab()" style="padding:7px 14px; background:var(--accent); border:none; color:var(--dark-bg); font-weight:700; border-radius:6px; cursor:pointer; font-size:13px;">🔄 Refresh Strategy</button>
+            </div>
+        </div>
+
+        <!-- Market Context Strip -->
+        <div id="strat-context-row" style="grid-column:1/-1; display:grid; grid-template-columns:repeat(7,1fr); gap:8px;">
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">Spot</div><div class="metric-value" id="strat-c-spot" style="font-size:1.1em;">-</div></div>
+            <div class="card" style="padding:10px; text-align:center; border-left:2px solid #00bfff;">
+                <div class="metric-label">Nifty Futures</div>
+                <div class="metric-value" id="strat-c-fut" style="font-size:1.1em; color:#00bfff;">-</div>
+                <div style="font-size:10px;" id="strat-c-fut-chg">-</div>
+                <div style="font-size:9px; color:var(--text-secondary);" id="strat-c-fut-basis">-</div>
+                <div style="font-size:9px; color:var(--text-secondary);" id="strat-c-fut-exp">-</div>
+            </div>
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">Max Pain</div><div class="metric-value" id="strat-c-maxpain" style="font-size:1.1em;">-</div><div style="font-size:10px;" id="strat-c-mpdist">-</div></div>
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">PCR (OI)</div><div class="metric-value" id="strat-c-pcr" style="font-size:1.1em;">-</div><div style="font-size:10px;" id="strat-c-pcrsig">-</div></div>
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">ATM IV</div><div class="metric-value" id="strat-c-iv" style="font-size:1.1em;">-</div><div style="font-size:10px;" id="strat-c-ivsig">-</div></div>
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">Signal</div><div class="metric-value" id="strat-c-signal" style="font-size:1.0em;">-</div></div>
+            <div class="card" style="padding:10px; text-align:center;"><div class="metric-label">Mkt Trend</div><div class="metric-value" id="strat-c-mkt" style="font-size:1.0em;">-</div><div style="font-size:10px;" id="strat-c-breadth">-</div></div>
+        </div>
+
+        <!-- No-data notice -->
+        <div id="strat-nodata" style="grid-column:1/-1; display:block; padding:20px; text-align:center; color:var(--text-secondary); background:rgba(255,255,255,0.03); border-radius:8px;">ℹ️ Loading strategy… or click <strong>🔄 Refresh Strategy</strong> above.</div>
+
+        <!-- Primary Strategy Card -->
+        <div class="card" id="strat-primary-card" style="grid-column:1/-1; border-left:4px solid var(--accent);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div style="flex:1; min-width:220px;">
+                    <div class="card-header">🎯 Primary Strategy</div>
+                    <div id="strat-p-name" style="font-size:1.7em; font-weight:800; color:var(--accent); margin-bottom:4px;">-</div>
+                    <div id="strat-p-setup" style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">-</div>
+                    <div id="strat-p-rationale" style="font-size:12px; color:var(--text-secondary); line-height:1.5;">-</div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; min-width:240px;">
+                    <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;"><div class="metric-label">Risk Level</div><div class="metric-value" id="strat-p-risk" style="font-size:1.0em;">-</div></div>
+                    <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;"><div class="metric-label">Max Loss</div><div class="metric-value" id="strat-p-maxloss" style="font-size:0.95em;">-</div></div>
+                    <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;"><div class="metric-label">Target</div><div class="metric-value" id="strat-p-target" style="font-size:0.95em; color:#4CAF50;">-</div></div>
+                    <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px;"><div class="metric-label">Entry Tip</div><div class="metric-value" id="strat-p-entry" style="font-size:0.85em;">-</div></div>
+                </div>
+            </div>
+            <div id="strat-p-avoid" style="margin-top:8px; padding:6px 10px; background:rgba(255,107,107,0.06); border-left:3px solid rgba(255,107,107,0.4); border-radius:4px; font-size:11px; color:#FF6B6B;">-</div>
+        </div>
+
+        <!-- Strike Matrix -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">📊 Strike Matrix — Key Levels</div>
+            <div style="overflow-x:auto;">
+                <table class="table-compact" style="width:100%;">
+                    <thead><tr><th>Strike</th><th>Pos vs ATM</th><th>CE OI</th><th>PE OI</th><th>CE IV%</th><th>PE IV%</th><th>Significance</th></tr></thead>
+                    <tbody id="strat-strike-matrix"><tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- CE / PE Leg Cards -->
+        <div class="card" id="strat-ce-card" style="grid-column:span 1;">
+            <div class="card-header" style="color:#00bfff;">📘 CE (Call) Leg</div>
+            <div id="strat-ce-action" style="font-size:1.3em; font-weight:800; margin-bottom:4px;">-</div>
+            <div class="card-row">
+                <div class="metric-item"><div class="metric-label">Strike</div><div class="metric-value" id="strat-ce-strike" style="font-size:1.4em; color:var(--accent);">-</div></div>
+                <div class="metric-item"><div class="metric-label">Position</div><div class="metric-value" id="strat-ce-pos" style="font-size:1.0em;">-</div></div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:var(--text-secondary);" id="strat-ce-note">-</div>
+        </div>
+        <div class="card" id="strat-pe-card" style="grid-column:span 1;">
+            <div class="card-header" style="color:#FF6B6B;">📕 PE (Put) Leg</div>
+            <div id="strat-pe-action" style="font-size:1.3em; font-weight:800; margin-bottom:4px;">-</div>
+            <div class="card-row">
+                <div class="metric-item"><div class="metric-label">Strike</div><div class="metric-value" id="strat-pe-strike" style="font-size:1.4em; color:#FF6B6B;">-</div></div>
+                <div class="metric-item"><div class="metric-label">Position</div><div class="metric-value" id="strat-pe-pos" style="font-size:1.0em;">-</div></div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:var(--text-secondary);" id="strat-pe-note">-</div>
+        </div>
+
+        <!-- OI Buildup + PCR Strategies -->
+        <div class="card">
+            <div class="card-header" style="color:#4CAF50;">📊 OI Buildup Strategy</div>
+            <div id="strat-oi-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+            <div id="strat-oi-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+            <div style="background:rgba(76,175,80,0.04); padding:6px 8px; border-radius:4px;"><div class="metric-label">Suggested Action</div><div id="strat-oi-action" style="font-size:12px; font-weight:600;">-</div></div>
+        </div>
+        <div class="card">
+            <div class="card-header" style="color:#00bfff;">📈 PCR &amp; Volume Strategy</div>
+            <div id="strat-pcr-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+            <div id="strat-pcr-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+            <div style="background:rgba(0,191,255,0.04); padding:6px 8px; border-radius:4px;"><div class="metric-label">Suggested Action</div><div id="strat-pcr-action" style="font-size:12px; font-weight:600;">-</div></div>
+        </div>
+
+        <!-- Signal Confluence + Go/No-Go -->
+        <div class="card">
+            <div class="card-header">🧠 Signal Confluence</div>
+            <div id="strat-score-bar" style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+                <div style="font-size:11px; color:var(--text-secondary);">Bull:</div>
+                <div id="strat-bull-bar" style="height:10px; background:#4CAF50; border-radius:3px; width:0;"></div>
+                <div id="strat-bull-score" style="font-size:12px; font-weight:700; color:#4CAF50;">0</div>
+                <div style="font-size:11px; color:var(--text-secondary); margin-left:8px;">Bear:</div>
+                <div id="strat-bear-bar" style="height:10px; background:#FF6B6B; border-radius:3px; width:0;"></div>
+                <div id="strat-bear-score" style="font-size:12px; font-weight:700; color:#FF6B6B;">0</div>
+            </div>
+            <div id="strat-reasons" style="font-size:11px; line-height:1.7;">-</div>
+        </div>
+        <div class="card">
+            <div class="card-header">✅ Trade Go / No-Go Checklist</div>
+            <div id="strat-checklist" style="font-size:12px; line-height:2.0;">-</div>
+        </div>
+
+        <!-- Alternative Strategies -->
+        <div class="card" id="strat-alt1-card">
+            <div class="card-header">💡 Alternative Strategy 1</div>
+            <div id="strat-alt1-name" style="font-size:1.1em; font-weight:700; margin-bottom:4px;">-</div>
+            <div id="strat-alt1-setup" style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">-</div>
+            <div id="strat-alt1-why" style="font-size:11px; color:var(--text-secondary);">-</div>
+        </div>
+        <div class="card" id="strat-alt2-card">
+            <div class="card-header">💡 Alternative Strategy 2</div>
+            <div id="strat-alt2-name" style="font-size:1.1em; font-weight:700; margin-bottom:4px;">-</div>
+            <div id="strat-alt2-setup" style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">-</div>
+            <div id="strat-alt2-why" style="font-size:11px; color:var(--text-secondary);">-</div>
+        </div>
+
+        <!-- PCR Chart -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">📊 PCR Trend (PCR OI &amp; Volume)</div>
+            <div class="chart-container" style="height:320px; padding-top:6px;"><canvas id="trendChart" style="width:100%; height:100%;"></canvas></div>
+        </div>
+
+        <!-- CE vs PE Buildup Chart -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">📝 CE vs PE Buildup (Call/Put Writing)</div>
+            <div class="chart-container" style="height:320px; padding-top:6px;"><canvas id="callPutWritingChart" style="width:100%; height:100%;"></canvas></div>
+        </div>
+
+        <!-- Max Pain vs Spot Chart -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">💰 Max Pain vs Spot</div>
+            <div class="chart-container" style="height:320px; padding-top:6px;"><canvas id="maxPainSpotChart" style="width:100%; height:100%;"></canvas></div>
+        </div>
+
+        <!-- Max Pain Strategy -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header" style="color:#FFA500;">🧭 Max Pain Strategy</div>
+            <div id="strat-mp-strat" style="font-size:1.1em; font-weight:700; margin-bottom:6px;">-</div>
+            <div id="strat-mp-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">-</div>
+            <div style="background:rgba(255,165,0,0.04); padding:6px 8px; border-radius:4px;"><div class="metric-label">Suggested Action</div><div id="strat-mp-action" style="font-size:12px; font-weight:600;">-</div></div>
+        </div>
+
+        <!-- Recent Trend History -->
+        <div class="card" style="grid-column:1/-1;">
+            <div class="card-header">📈 Recent Trend History</div>
+            <div style="display:flex; gap:8px; align-items:center; margin:8px 0 12px 0;">
+                <div style="font-size:12px; color:var(--text-secondary);">View:</div>
+                <button onclick="renderTrendsTable(trendsCache,'last10')" style="padding:6px;">Last 10</button>
+                <button onclick="renderTrendsTable(trendsCache,'last20')" style="padding:6px;">Last 20</button>
+                <button onclick="renderTrendsTable(trendsCache,'all')" style="padding:6px;">All</button>
+                <button onclick="renderTrendsTable(trendsCache,'nonneutral')" style="padding:6px;">Only ≠ neutral</button>
+                <button onclick="renderTrendsTable(trendsCache,'bigoi')" style="padding:6px;">Big OI events</button>
+                <div id="trends-filter-note" style="margin-left:auto; font-size:12px; color:var(--text-secondary);">Showing last 10 by default</div>
+            </div>
+            <div style="overflow-x:auto; max-height:500px; overflow-y:auto;">
+                <table class="table-compact" style="width:100%; font-size:12px;">
+                    <thead style="position:sticky; top:0; background:var(--dark-bg);">
+                        <tr>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">Time</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">Nifty Value</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">PCR (OI)</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">PCR (Vol)</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">Sentiment</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">IV Rank</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">Call OI</th>
+                            <th style="padding:8px; text-align:left; border-bottom:1px solid var(--border);">Put OI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trends-table-body">
+                        <tr><td colspan="8" style="padding:20px; text-align:center; color:var(--text-secondary);">No trend data available yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentData = null;
+    let receivedData = false;
+    let trendsCache = [];
+    let stocksDataLocal = null;
+    let trendsRefreshInterval = null;
+    let futuresRefreshInterval = null;
+
+    function drawBuildupSparkline(callSeries, putSeries) {
+        try {
+            const canvas = document.getElementById('buildup-sparkline');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            const all = [...callSeries, ...putSeries];
+            const maxval = Math.max(...all.filter(x => isFinite(x)), 1);
+            const minval = Math.min(...all.filter(x => isFinite(x)), 0);
+            const norm = v => maxval === minval ? h / 2 : h - ((v - minval) / (maxval - minval)) * h;
+            const drawLine = (series, color) => {
+                ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+                series.forEach((v, i) => { const x = i/(series.length-1||1)*w; const y=norm(v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+                ctx.stroke();
+            };
+            if (callSeries.length) drawLine(callSeries, '#FF6B6B');
+            if (putSeries.length) drawLine(putSeries, '#4CAF50');
+        } catch(e) { console.warn('drawBuildupSparkline error', e); }
+    }
+
+    function refreshNiftyFutures() {
+        fetch('/api/nifty-futures').then(r=>r.json()).then(d => {
+            if (d.error) return;
+            const el = document.getElementById('strat-c-fut'); const chgEl = document.getElementById('strat-c-fut-chg'); const basisEl = document.getElementById('strat-c-fut-basis'); const expEl = document.getElementById('strat-c-fut-exp');
+            if (el) el.textContent = d.last_price != null ? Number(d.last_price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '-';
+            if (chgEl) { const pct=d.pct_change; chgEl.textContent=pct!=null?(pct>=0?'+':'')+Number(pct).toFixed(2)+'%':'-'; chgEl.style.color=pct>0?'#4CAF50':pct<0?'#FF6B6B':'#FFA500'; }
+            if (basisEl&&d.last_price!=null&&d.spot!=null) { const basis=Number(d.last_price)-Number(d.spot); basisEl.textContent='Basis: '+(basis>=0?'+':'')+basis.toFixed(1); basisEl.style.color=basis>=0?'#4CAF50':'#FF6B6B'; }
+            if (expEl) expEl.textContent = d.expiry ? 'Exp: '+d.expiry : '';
+        }).catch(e=>console.warn('[FUTURES] fetch error:',e));
+    }
+
+    function plotTrendChart(trends) {
+        const ctx = document.getElementById('trendChart'); if (!ctx) return;
+        const ts = trends.map(t => new Date(t.timestamp).toLocaleTimeString());
+        const pcrOI = trends.map(t => t.pcr_oi || 0); const pcrVol = trends.map(t => t.pcr_volume || 0);
+        if (window.trendChartInstance) window.trendChartInstance.destroy();
+        window.trendChartInstance = new Chart(ctx, { type:'line', data:{ labels:ts, datasets:[{label:'PCR (OI)',data:pcrOI,borderColor:'#00bfff',backgroundColor:'rgba(0,191,255,0.1)',tension:0.3,yAxisID:'y',fill:true},{label:'PCR (Volume)',data:pcrVol,borderColor:'#4CAF50',backgroundColor:'rgba(76,175,80,0.1)',tension:0.3,yAxisID:'y',fill:true}] }, options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, plugins:{legend:{display:true,labels:{color:'#b0b8d4',font:{size:12}}}}, scales:{y:{type:'linear',display:true,position:'left',ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'},title:{display:true,text:'PCR Value',color:'#b0b8d4'}},x:{ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'}}} } });
+    }
+
+    function plotCallPutWritingChart(trends) {
+        const ctx = document.getElementById('callPutWritingChart'); if (!ctx) return;
+        const ts = trends.map(t => new Date(t.timestamp).toLocaleTimeString());
+        const cw = trends.map(t => Math.abs(t.call_writing || 0)); const pw = trends.map(t => Math.abs(t.put_writing || 0));
+        if (window.callPutWritingChartInstance) window.callPutWritingChartInstance.destroy();
+        window.callPutWritingChartInstance = new Chart(ctx, { type:'line', data:{ labels:ts, datasets:[{label:'Call Writing',data:cw,borderColor:'#FF6B6B',backgroundColor:'rgba(255,107,107,0.1)',tension:0.3,fill:true,borderWidth:2},{label:'Put Writing',data:pw,borderColor:'#4CAF50',backgroundColor:'rgba(76,175,80,0.1)',tension:0.3,fill:true,borderWidth:2}] }, options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, plugins:{legend:{display:true,labels:{color:'#b0b8d4',font:{size:12}}}}, scales:{y:{type:'linear',display:true,position:'left',ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'},title:{display:true,text:'OI Change',color:'#b0b8d4'},beginAtZero:true},x:{ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'}}} } });
+    }
+
+    function plotMaxPainSpotChart(trends) {
+        const ctx = document.getElementById('maxPainSpotChart'); if (!ctx) return;
+        const ts = trends.map(t => new Date(t.timestamp).toLocaleTimeString());
+        const sv = trends.map(t => t.nifty_value || t.underlying_value || 0);
+        const mpv = trends.map(t => (t.max_pain_analysis&&t.max_pain_analysis.max_pain_strike!=null)?Number(t.max_pain_analysis.max_pain_strike):Math.round((t.nifty_value||t.underlying_value||0)/100)*100);
+        if (window.maxPainSpotChartInstance) window.maxPainSpotChartInstance.destroy();
+        window.maxPainSpotChartInstance = new Chart(ctx, { type:'line', data:{ labels:ts, datasets:[{label:'Spot',data:sv,borderColor:'#00bfff',backgroundColor:'rgba(0,191,255,0.08)',tension:0.25,fill:true,borderWidth:2},{label:'Max Pain',data:mpv,borderColor:'#FFA500',backgroundColor:'rgba(255,165,0,0.06)',tension:0.1,fill:false,borderWidth:2,pointRadius:2}] }, options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, plugins:{legend:{display:true,labels:{color:'#b0b8d4',font:{size:12}}}}, scales:{y:{ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'},title:{display:true,text:'Price',color:'#b0b8d4'}},x:{ticks:{color:'#b0b8d4'},grid:{color:'#3a4563'}}} } });
+    }
+
+    function plotOiByStrikeChart(rows, spot) {
+        try {
+            const ctx = document.getElementById('oiByStrikeChart'); if (!ctx) return;
+            const byStrike = {};
+            (rows||[]).forEach(r => { const s=Number(r.strike||r.strikePrice||0); if (!isFinite(s)) return; const ce=(r.CE&&r.CE.openInterest!==undefined)?r.CE.openInterest:(r.ce_oi||r.call_oi||0); const pe=(r.PE&&r.PE.openInterest!==undefined)?r.PE.openInterest:(r.pe_oi||r.put_oi||0); byStrike[s]={call:Number(ce||0),put:Number(pe||0)}; });
+            const strikes = Object.keys(byStrike).map(x=>Number(x)).sort((a,b)=>a-b);
+            if (!strikes.length) { if (window.oiByStrikeChartInstance) { window.oiByStrikeChartInstance.destroy(); window.oiByStrikeChartInstance=null; } return; }
+            const callData = strikes.map(s=>byStrike[s]?byStrike[s].call:0); const putData = strikes.map(s=>byStrike[s]?byStrike[s].put:0);
+            if (window.oiByStrikeChartInstance) window.oiByStrikeChartInstance.destroy();
+            window.oiByStrikeChartInstance = new Chart(ctx, { type:'bar', data:{ labels:strikes.map(s=>String(s)), datasets:[{label:'Call OI',data:callData,backgroundColor:'#00bfff'},{label:'Put OI',data:putData,backgroundColor:'#FF6B6B'}] }, options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, plugins:{legend:{labels:{color:'#b0b8d4',font:{size:12}}}}, scales:{x:{ticks:{color:'#b0b8d4'},grid:{display:false}},y:{ticks:{color:'#b0b8d4',callback:function(v){if(v>=1e7)return(v/1e7).toFixed(1)+'Cr';if(v>=1e5)return(v/1e5).toFixed(1)+'L';if(v>=1000)return(v/1000).toFixed(1)+'K';return v;}},grid:{color:'#3a4563'},beginAtZero:true}} }, plugins:[{id:'spotLine',afterDraw:chart=>{try{if(!spot)return;const xS=chart.scales.x;let idx=0,minD=Infinity;for(let i=0;i<strikes.length;i++){const d=Math.abs(strikes[i]-spot);if(d<minD){minD=d;idx=i;}}const x=xS.getPixelForValue(String(strikes[idx]));const c2=chart.ctx;c2.save();c2.setLineDash([6,4]);c2.strokeStyle='#ffffff99';c2.lineWidth=1.5;c2.beginPath();c2.moveTo(x,chart.chartArea.top);c2.lineTo(x,chart.chartArea.bottom);c2.stroke();c2.restore();c2.save();c2.fillStyle='#ffffff';c2.font='12px sans-serif';c2.fillText('Spot: '+(spot||'-'),Math.min(x+8,chart.chartArea.right-60),chart.chartArea.top+14);c2.restore();}catch(e){}}}] });
+        } catch(e) { console.error('plotOiByStrikeChart error',e); }
+    }
+
+    function renderTrendsTable(trends, mode) {
+        const tbody = document.getElementById('trends-table-body'); const note = document.getElementById('trends-filter-note');
+        if (!tbody || !trends) return;
+        const fmtOI = v => v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(1)+'L':v>=1000?(v/1000).toFixed(1)+'K':(v!=null?Number(v).toFixed(0):'-');
+        let rows = trends.slice(); let label = 'Showing all';
+        if (mode==='last10') { rows=rows.slice(0,10); label='Showing last 10'; }
+        else if (mode==='last20') { rows=rows.slice(0,20); label='Showing last 20'; }
+        else if (mode==='nonneutral') { rows=rows.filter(t=>(t.sentiment||'').toLowerCase()!=='neutral'||(t.primary_signal||'').toLowerCase()!=='neutral'); label='Showing non-neutral ('+rows.length+')'; }
+        else if (mode==='bigoi') { const mx=Math.max(...trends.map(t=>(t.call_oi||0)+(t.put_oi||0)),1); rows=rows.filter(t=>((t.call_oi||0)+(t.put_oi||0))>=mx*0.5); label='Showing big OI events ('+rows.length+')'; }
+        if (note) note.textContent = label;
+        tbody.innerHTML = rows.map(t=>{
+            const ts=t.timestamp?new Date(t.timestamp).toLocaleTimeString():'-'; const nifty=t.nifty_value?Number(t.nifty_value).toFixed(2):'-'; const pOI=t.pcr_oi!=null?Number(t.pcr_oi).toFixed(2):'-'; const pVol=t.pcr_volume!=null?Number(t.pcr_volume).toFixed(2):'-'; const sig=t.primary_signal||t.sentiment||'-'; const ivR=t.iv_rank!=null?Number(t.iv_rank).toFixed(1)+'%':'-'; const cOI=fmtOI(t.call_oi); const pOist=fmtOI(t.put_oi);
+            const sc=sig.includes('BULL')||sig==='bullish'?'#4CAF50':sig.includes('BEAR')||sig==='bearish'?'#FF6B6B':'#FFA500';
+            return `<tr><td style="padding:6px 8px;">${ts}</td><td style="padding:6px 8px;">${nifty}</td><td style="padding:6px 8px;">${pOI}</td><td style="padding:6px 8px;">${pVol}</td><td style="padding:6px 8px; color:${sc}; font-weight:600;">${sig}</td><td style="padding:6px 8px;">${ivR}</td><td style="padding:6px 8px;">${cOI}</td><td style="padding:6px 8px;">${pOist}</td></tr>`;
+        }).join()||'<tr><td colspan="8" style="padding:20px; text-align:center; color:var(--text-secondary);">No data matches filter</td></tr>';
+    }
+
+    function buildStrategiesTab() {
+        const nodata = document.getElementById('strat-nodata');
+        if (nodata) { nodata.style.display='block'; nodata.style.color=''; nodata.innerHTML='⏳ Loading strategy from server…'; }
+        fetch('/api/strategy').then(r=>{ if(!r.ok)return r.json().then(e=>{throw new Error(e.error||'HTTP '+r.status);}); return r.json(); })
+        .then(d=>{ if(d.error)throw new Error(d.error); if(nodata)nodata.style.display='none'; _populateStrategyTab(d); })
+        .catch(err=>{ if(nodata){nodata.style.display='block'; nodata.style.color='#FF6B6B'; nodata.innerHTML='⚠️ Strategy error: <strong>'+err.message+'</strong><br><button onclick="buildStrategiesTab()" style="margin-top:8px;padding:6px 12px;background:var(--accent);border:none;color:var(--dark-bg);font-weight:700;border-radius:4px;cursor:pointer;">🔄 Retry</button>';} });
+    }
+
+    function _populateStrategyTab(d) {
+        try {
+            const ctx=d.context||{},primary=d.primary||{},cats=d.categories||{},alts=d.alternatives||[],checks=d.checks||[],matrix=d.strike_matrix||[],reasons=d.reasons||[];
+            const spot=Number(ctx.spot||0),maxPain=Number(ctx.max_pain||0),mpDistPct=Number(ctx.mp_dist_pct||0),pcrOI=Number(ctx.pcr_oi||1),pcrTrend=ctx.pcr_trend||'stable',atmIV=Number(ctx.atm_iv||0),highVol=!!ctx.high_vol,lowVol=!!ctx.low_vol,finalSig=ctx.final_sig||'',mktTrend=ctx.mkt_trend||'',breadth=Number(ctx.breadth||50),bullScore=Number(ctx.bull_score||0),bearScore=Number(ctx.bear_score||0);
+            const fmtOI=v=>v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(1)+'L':v>=1000?(v/1000).toFixed(1)+'K':(v||'-');
+            const fmtN=v=>Number.isFinite(v)&&v>0?v.toFixed(1)+'%':'-';
+            const colDir=t=>t==='bull'?'#4CAF50':t==='bear'?'#FF6B6B':'#FFA500';
+            document.getElementById('strat-c-spot').textContent=spot>0?spot.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'-';
+            document.getElementById('strat-c-maxpain').textContent=maxPain>0?maxPain.toLocaleString():'-';
+            const mpDistEl=document.getElementById('strat-c-mpdist'); mpDistEl.textContent=maxPain>0?(mpDistPct>0?'+':'')+mpDistPct.toFixed(1)+'% vs MaxPain':''; mpDistEl.style.color=mpDistPct>0.3?'#4CAF50':mpDistPct<-0.3?'#FF6B6B':'#FFA500';
+            const pcrEl=document.getElementById('strat-c-pcr'); pcrEl.textContent=pcrOI.toFixed(2); pcrEl.style.color=pcrOI>1.2?'#4CAF50':pcrOI<0.8?'#FF6B6B':'#FFA500';
+            document.getElementById('strat-c-pcrsig').textContent=pcrTrend==='rising'?'⬆ rising':pcrTrend==='falling'?'⬇ falling':'→ stable';
+            document.getElementById('strat-c-iv').textContent=atmIV>0?atmIV.toFixed(1)+'%':'-';
+            const ivSigEl=document.getElementById('strat-c-ivsig'); ivSigEl.textContent=highVol?'⚡ High Vol':lowVol?'😴 Low Vol':'Normal'; ivSigEl.style.color=highVol?'#FF6B6B':lowVol?'#4CAF50':'#FFA500';
+            const sigEl=document.getElementById('strat-c-signal'); sigEl.textContent=finalSig||'-'; sigEl.style.color=finalSig.includes('BULL')?'#4CAF50':finalSig.includes('BEAR')?'#FF6B6B':'#FFA500';
+            const mktEl=document.getElementById('strat-c-mkt'); mktEl.textContent=mktTrend.length>30?mktTrend.substring(0,28)+'…':(mktTrend||'-'); mktEl.style.color=mktTrend.includes('BULL')?'#4CAF50':mktTrend.includes('BEAR')?'#FF6B6B':'#FFA500';
+            document.getElementById('strat-c-breadth').textContent=breadth.toFixed(0)+'% breadth';
+            const pCard=document.getElementById('strat-primary-card'); if(pCard)pCard.style.borderLeftColor=colDir(primary.type);
+            const pNameEl=document.getElementById('strat-p-name'); pNameEl.textContent=(primary.icon||'')+' '+(primary.name||'-'); pNameEl.style.color=colDir(primary.type);
+            document.getElementById('strat-p-setup').textContent=primary.setup||'-'; document.getElementById('strat-p-rationale').textContent=primary.rationale||'-'; document.getElementById('strat-p-risk').textContent=primary.risk||'-'; document.getElementById('strat-p-maxloss').textContent=primary.maxLoss||'-'; document.getElementById('strat-p-target').textContent=primary.target||'-'; document.getElementById('strat-p-entry').textContent=primary.entry||'-'; document.getElementById('strat-p-avoid').textContent='⚠ Avoid when: '+(primary.avoid||'-');
+            const ceLeg=primary.ce;
+            if(ceLeg){document.getElementById('strat-ce-action').textContent=ceLeg.action+' — '+ceLeg.strike+' CE';document.getElementById('strat-ce-action').style.color=ceLeg.action==='BUY'?'#4CAF50':'#FF6B6B';document.getElementById('strat-ce-strike').textContent=ceLeg.strike;document.getElementById('strat-ce-pos').textContent=ceLeg.pos;document.getElementById('strat-ce-note').textContent=ceLeg.note||'';document.getElementById('strat-ce-card').style.borderLeft='3px solid '+(ceLeg.action==='BUY'?'#4CAF50':'#FF6B6B');}
+            else{document.getElementById('strat-ce-action').textContent='No CE leg for this strategy';document.getElementById('strat-ce-strike').textContent='-';document.getElementById('strat-ce-pos').textContent='-';document.getElementById('strat-ce-note').textContent='';}
+            const peLeg=primary.pe;
+            if(peLeg){document.getElementById('strat-pe-action').textContent=peLeg.action+' — '+peLeg.strike+' PE';document.getElementById('strat-pe-action').style.color=peLeg.action==='BUY'?'#4CAF50':'#FF6B6B';document.getElementById('strat-pe-strike').textContent=peLeg.strike;document.getElementById('strat-pe-pos').textContent=peLeg.pos;document.getElementById('strat-pe-note').textContent=peLeg.note||'';document.getElementById('strat-pe-card').style.borderLeft='3px solid '+(peLeg.action==='BUY'?'#4CAF50':'#FF6B6B');}
+            else{document.getElementById('strat-pe-action').textContent='No PE leg for this strategy';document.getElementById('strat-pe-strike').textContent='-';document.getElementById('strat-pe-pos').textContent='-';document.getElementById('strat-pe-note').textContent='';}
+            const mTbody=document.getElementById('strat-strike-matrix');
+            if(mTbody)mTbody.innerHTML=matrix.map(m=>{const isAtm=m.offset===0,isLeg=(ceLeg&&ceLeg.strike===m.strike)||(peLeg&&peLeg.strike===m.strike);const rowSty=isAtm?'background:rgba(0,191,255,0.08);':isLeg?'background:rgba(255,165,0,0.06);':'';const posLbl=m.offset===0?'ATM':(m.offset>0?'+'+m.offset+' OTM':m.offset+' OTM');return `<tr style="${rowSty}"><td><strong>${m.strike}</strong></td><td style="color:var(--text-secondary);">${posLbl}</td><td>${fmtOI(m.ce_oi)}</td><td>${fmtOI(m.pe_oi)}</td><td>${fmtN(m.ce_iv)}</td><td>${fmtN(m.pe_iv)}</td><td style="font-size:11px;">${m.label||''}</td></tr>`;}).join('');
+            const mp=cats.max_pain||{}; document.getElementById('strat-mp-strat').textContent=mp.strat||'-'; document.getElementById('strat-mp-desc').textContent=mp.desc||'-'; document.getElementById('strat-mp-action').textContent=mp.action||'-';
+            const oi=cats.oi||{}; document.getElementById('strat-oi-strat').textContent=oi.strat||'-'; document.getElementById('strat-oi-desc').textContent=oi.desc||'-'; document.getElementById('strat-oi-action').textContent=oi.action||'-';
+            const pcr=cats.pcr||{}; document.getElementById('strat-pcr-strat').textContent=pcr.strat||'-'; document.getElementById('strat-pcr-desc').textContent=pcr.desc||'-'; document.getElementById('strat-pcr-action').textContent=pcr.action||'-';
+            const maxScr=Math.max(bullScore+bearScore,1); document.getElementById('strat-bull-score').textContent=bullScore; document.getElementById('strat-bear-score').textContent=bearScore; document.getElementById('strat-bull-bar').style.width=(bullScore/maxScr*120)+'px'; document.getElementById('strat-bear-bar').style.width=(bearScore/maxScr*120)+'px';
+            document.getElementById('strat-reasons').innerHTML=reasons.map(r=>`<span style="color:${r.dir==='bull'?'#4CAF50':'#FF6B6B'}; margin-right:8px;">${r.dir==='bull'?'▲':'▼'} ${r.txt}</span><br>`).join('');
+            const checkEl=document.getElementById('strat-checklist'); checkEl.innerHTML=checks.map(c=>`<div style="color:${c.pass?'#4CAF50':'#FF6B6B'};">${c.pass?'✅':'❌'} ${c.label} <span style="color:var(--text-secondary); font-size:10px;">(${c.note})</span></div>`).join('');
+            const goEl=document.createElement('div'); goEl.style.cssText='margin-top:8px; padding:6px 10px; border-radius:4px; font-weight:700; font-size:12px;'; const gr=d.go_ratio||0; goEl.style.background=gr>=0.75?'rgba(76,175,80,0.15)':gr>=0.5?'rgba(255,165,0,0.12)':'rgba(255,107,107,0.12)'; goEl.style.color=gr>=0.75?'#4CAF50':gr>=0.5?'#FFA500':'#FF6B6B'; goEl.textContent=(gr>=0.75?'✅ ':gr>=0.5?'⚠️ ':'🚫 ')+(d.go_verdict||''); checkEl.appendChild(goEl);
+            if(alts[0]){document.getElementById('strat-alt1-name').textContent=alts[0].name;document.getElementById('strat-alt1-setup').textContent=alts[0].setup;document.getElementById('strat-alt1-why').textContent=alts[0].why;}
+            if(alts[1]){document.getElementById('strat-alt2-name').textContent=alts[1].name;document.getElementById('strat-alt2-setup').textContent=alts[1].setup;document.getElementById('strat-alt2-why').textContent=alts[1].why;}
+        } catch(e) { console.error('[STRATEGY] _populateStrategyTab error:', e); const nd=document.getElementById('strat-nodata'); if(nd){nd.style.display='block';nd.style.color='#FF6B6B';nd.innerHTML='⚠️ Strategy render error: <strong>'+e.message+'</strong><br><button onclick="buildStrategiesTab()" style="margin-top:8px;padding:6px 12px;background:var(--accent);border:none;color:var(--dark-bg);font-weight:700;border-radius:4px;cursor:pointer;">🔄 Retry</button>';} }
+    }
+
+    function updateGlobalBias(data, stocksData) {
+        try {
+            const mkt = (stocksData&&stocksData.trend&&stocksData.trend.trend)?stocksData.trend.trend:(data&&data.market_trend||'-');
+            const intraday = (data&&data.final_signal)?data.final_signal:'-';
+            const deltaSignal = (data&&data.portfolio_greeks&&data.portfolio_greeks.delta_signal)?data.portfolio_greeks.delta_signal:'-';
+            const fmo = (data&&data.fast_moving_options&&data.fast_moving_options.overall_direction)?data.fast_moving_options.overall_direction:'-';
+            let biasLabel = 'Neutral';
+            const bc=[mkt,intraday,deltaSignal,fmo].filter(s=>String(s).toUpperCase().includes('BULL')).length;
+            const bearc=[mkt,intraday,deltaSignal,fmo].filter(s=>String(s).toUpperCase().includes('BEAR')).length;
+            if(bc>=3)biasLabel='Strong Bullish — consider long bias';
+            else if(bearc>=3)biasLabel='Strong Bearish — avoid fresh longs';
+            else if(bc>bearc)biasLabel='Mild Bullish — cautious longs';
+            else if(bearc>bc)biasLabel='Mild Bearish — reduce longs / hedge';
+            if(String(mkt).toUpperCase().includes('STRONG')&&String(mkt).toUpperCase().includes('BEAR')) biasLabel='Neutral / Cautious — Market strongly bearish (cap applied)';
+            const gbLabel=document.getElementById('global-bias-label');
+            if(gbLabel){gbLabel.textContent=biasLabel;gbLabel.style.color=biasLabel.toUpperCase().includes('BEAR')?'#FFB3B3':(biasLabel.toUpperCase().includes('BULL')?'#D1FAE5':'var(--text-primary)');}
+            const gbSub=document.getElementById('global-bias-sub');
+            const cc=v=>{if(!v)return'#b0b8d4';const s=String(v).toUpperCase();if(s.includes('BULLISH'))return'#4CAF50';if(s.includes('BEARISH'))return'#FF6B6B';if(s.includes('NEUTRAL')||s.includes('MIXED'))return'#B0B8D4';return'#FFA500';};
+            if(gbSub)gbSub.innerHTML=`Market: <span style="color:${cc(mkt)};font-weight:700;">${mkt}</span>, Intraday: <span style="color:${cc(intraday)};font-weight:700;">${intraday}</span>, Delta: <span style="color:${cc(deltaSignal)};font-weight:700;">${deltaSignal}</span>, Options: <span style="color:${cc(fmo)};font-weight:700;">${fmo}</span>`;
+            // Scalper playbook
+            const playbookElem=document.getElementById('scalper-playbook-text');
+            const greeks=(data&&data.portfolio_greeks)?data.portfolio_greeks:{};
+            const gamma=Number(greeks.gamma||0); const vega=Number(greeks.vega||0);
+            let playLines=[];
+            if(String(mkt).toUpperCase().includes('BEAR')&&String(deltaSignal).toUpperCase().includes('BULL')){playLines.push('No fresh longs. Book profits on intraday longs into strength.');playLines.push('Look for small-size short scalps near CE writing clusters with tight stops.');}
+            else if((String(mkt).toUpperCase().includes('NEUT')||String(mkt).toUpperCase().includes('MIX'))&&Math.abs(gamma)>0.002&&Math.abs(vega)>20){playLines.push('Mean-reversion scalps only; avoid holding beyond 5–10 minutes. Use smaller size.');}
+            else{const up=biasLabel&&String(biasLabel).toUpperCase().includes('BULL');const down=biasLabel&&String(biasLabel).toUpperCase().includes('BEAR');if(up&&!down)playLines.push('Prefer long scalps on dips; tight stops and small size.');else if(down&&!up)playLines.push('Prefer short scalps on bounces; tight stops and prefer small size.');else playLines.push('Market mixed — prefer quick mean-reversion scalps with strict stops.');}
+            if(playbookElem)playbookElem.innerHTML=playLines.map(l=>`• ${l}`).join('<br>');
+            if(gbLabel&&gbLabel.dataset!==undefined){gbLabel.textContent=(playLines[0]||'Follow intraday rules');gbLabel.style.color='var(--accent)';}
+        } catch(e){console.warn('updateGlobalBias error',e);}
+    }
+
+    function loadTrendsData() {
+        document.getElementById('trends-loading').style.display = 'block';
+        document.getElementById('trends-content').classList.add('hidden');
+        Promise.all([fetch('/api/get-trends').then(r=>r.json()), fetch('/api/analyze-stocks').then(r=>r.json())])
+        .then(([trendsData, stocksData]) => { stocksDataLocal = stocksData; displayTrendsData(trendsData, stocksData); })
+        .catch(err => { document.getElementById('trends-loading').innerHTML = '<p style="color:red;">Failed to load trend data: '+err.message+'</p>'; });
+    }
+
+    function displayTrendsData(data, stocksData) {
+        try {
+            // Market trend
+            if (stocksData&&stocksData.trend) {
+                const trend=stocksData.trend;
+                const te=document.getElementById('trends-market-trend');
+                if(te){te.textContent=trend.trend;te.style.color=trend.trend.includes('Bullish')?'#4CAF50':trend.trend.includes('Bearish')?'#FF6B6B':'#FFA500';}
+                const adv=document.getElementById('trends-advancers-count'); const dec=document.getElementById('trends-decliners-count'); const avg=document.getElementById('trends-avg-change');
+                if(adv)adv.textContent=trend.advancers; if(dec)dec.textContent=trend.decliners; if(avg)avg.textContent=trend.avg_change+'%';
+                const total=trend.advancers+trend.decliners; const ap=total>0?(trend.advancers/total)*100:50; const dp=total>0?(trend.decliners/total)*100:50;
+                const apEl=document.getElementById('advancers-portion'); const dpEl=document.getElementById('decliners-portion');
+                const alEl=document.getElementById('advancers-label'); const dlEl=document.getElementById('decliners-label');
+                if(apEl)apEl.style.width=ap+'%'; if(dpEl)dpEl.style.width=dp+'%'; if(alEl)alEl.textContent=Math.round(ap)+'%'; if(dlEl)dlEl.textContent=Math.round(dp)+'%';
+            }
+
+            // OI buildup
+            if (currentData&&currentData.oi_buildup_analysis) {
+                const bu=currentData.oi_buildup_analysis;
+                const bEl=document.getElementById('trends-oi-buildup-signal');
+                if(bEl){bEl.textContent=bu.signal;bEl.style.color=bu.signal.includes('BULLISH')?'#4CAF50':bu.signal.includes('BEARISH')?'#FF6B6B':'#FFA500';}
+                const iEl=document.getElementById('trends-buildup-interpretation'); if(iEl)iEl.textContent=bu.interpretation;
+                const cv=Math.abs(bu.call_writing||0); const pv=Math.abs(bu.put_writing||0); const tot=cv+pv; const cp=tot>0?(cv/tot)*100:50; const pp=tot>0?(pv/tot)*100:50;
+                const cpEl=document.getElementById('call-portion'); const ppEl=document.getElementById('put-portion'); const clEl=document.getElementById('call-label'); const plEl=document.getElementById('put-label');
+                const cCount=document.getElementById('trends-call-count'); const pCount=document.getElementById('trends-put-count');
+                if(cpEl)cpEl.style.width=cp+'%'; if(ppEl)ppEl.style.width=pp+'%'; if(clEl)clEl.textContent=Math.round(cp)+'%'; if(plEl)plEl.textContent=Math.round(pp)+'%';
+                if(cCount)cCount.textContent=cv.toLocaleString(); if(pCount)pCount.textContent=pv.toLocaleString();
+                let dec='BALANCED', rat='Mixed signals - stay cautious', dc='#FFA500';
+                if(pv>cv*1.5){dec='PUT DOMINANCE';rat='Heavy PE writing indicates bearish correction setup';dc='#4CAF50';}
+                else if(cv>pv*1.5){dec='CALL DOMINANCE';rat='Heavy CE writing indicates bearish trend continuation';dc='#FF6B6B';}
+                const dEl=document.getElementById('trends-derived-decision'); const rEl=document.getElementById('trends-decision-rationale');
+                if(dEl){dEl.textContent=dec;dEl.style.color=dc;} if(rEl)rEl.textContent=rat;
+                try { const recent=data.recent_trends||[]; const samples=recent.slice(-6); const cs=samples.map(s=>Number(s.call_oi||s.call_writing||0)); const ps=samples.map(s=>Number(s.put_oi||s.put_writing||0)); if(cs.length>1||ps.length>1)drawBuildupSparkline(cs,ps); } catch(e){}
+            }
+
+            // Intraday signal
+            if(currentData&&currentData.final_signal){
+                const sEl=document.getElementById('trends-primary-signal'); const cEl=document.getElementById('trends-confidence'); const aEl=document.getElementById('trends-action');
+                const conf=Number(currentData.confidence||0);
+                if(sEl){sEl.textContent=currentData.final_signal;sEl.style.color=currentData.final_signal.includes('BULLISH')?'#4CAF50':currentData.final_signal.includes('BEARISH')?'#FF6B6B':'#FFA500';}
+                if(cEl)cEl.textContent=conf+'%';
+                if(aEl){if(conf<30){aEl.style.color='var(--text-secondary)';aEl.textContent='Signal too weak to act — follow market trend and risk rules';}else if(conf<40){aEl.style.color='var(--text-secondary)';aEl.textContent=currentData.action+' — Low confidence';}else{aEl.style.color='';aEl.textContent=currentData.action;}}
+            }
+
+            // PCR analysis from stats
+            const stats=data.statistics||{};
+            const pcra=stats.pcr_analysis||{};
+            try {
+                const tf=data.pcr_timeframe_changes||stats.pcr_timeframe_changes||{};
+                const threshold=0.02;
+                ['1min','2min','5min','10min'].forEach(k=>{
+                    const val=(tf&&tf[k])?Number(tf[k]):null;
+                    const ev=document.getElementById(`pcr-${k}-value`); const ed=document.getElementById(`pcr-${k}-direction`); const ep=document.getElementById(`pcr-${k}-percent`); const eb=document.getElementById(`pcr-${k}-badge`);
+                    if(val===null||!isFinite(val)||Math.abs(val)<threshold){if(ev)ev.textContent='0.0000';if(ep)ep.textContent='0.00%';if(eb)eb.textContent='NO CHANGE';}
+                    else{if(ev)ev.textContent=Number(val).toFixed(4);if(ep)ep.textContent=(Number(val)*100).toFixed(2)+'%';if(ed)ed.textContent=val>0?'⬆️':'⬇️';if(eb)eb.textContent=Math.abs(val)>threshold?'MEANINGFUL':'NO CHANGE';}
+                });
+            } catch(e){}
+            if(pcra.highest_pcr!=null){
+                const he=document.getElementById('trend-pcr'); const sig=document.getElementById('trend-pcr-signal'); const dir=document.getElementById('trend-pcr-direction'); const trnd=document.getElementById('trend-pcr-trend');
+                const pbl=document.getElementById('pcr-bar-low'); const pbh=document.getElementById('pcr-bar-high'); const pbc=document.getElementById('pcr-bar-current'); const pbf=document.getElementById('pcr-bar-fill'); const pbm=document.getElementById('pcr-bar-marker');
+                if(he)he.textContent=pcra.current_pcr.toFixed(3);
+                const range=pcra.highest_pcr-pcra.lowest_pcr; const pos=range>0?((pcra.current_pcr-pcra.lowest_pcr)/range)*100:50; const clamped=Math.max(0,Math.min(100,pos));
+                if(pbf)pbf.style.width=clamped+'%'; if(pbm)pbm.style.left=clamped+'%'; if(pbl)pbl.textContent=pcra.lowest_pcr.toFixed(3); if(pbh)pbh.textContent=pcra.highest_pcr.toFixed(3); if(pbc)pbc.textContent=pcra.current_pcr.toFixed(3);
+                const direction=pcra.pcr_direction; const change=pcra.pcr_change; const changePct=pcra.pcr_change_percent;
+                let dirText='-',dirColor='#FFA500';
+                if(direction==='up'){dirText=`📈 Moving UP (${Math.abs(change).toFixed(3)}, ${changePct}%)`;dirColor='#4CAF50';}
+                else if(direction==='down'){dirText=`📉 Moving DOWN (${Math.abs(change).toFixed(3)}, ${changePct}%)`;dirColor='#FF6B6B';}
+                else{dirText='➡️ Neutral';}
+                if(dir){dir.textContent=dirText;dir.style.color=dirColor;} if(trnd)trnd.textContent=pcra.pcr_trend||'-';
+                if(sig){sig.className='signal-badge';if(pcra.pcr_trend&&pcra.pcr_trend.includes('BULLISH'))sig.classList.add('signal-bullish');else if(pcra.pcr_trend&&pcra.pcr_trend.includes('BEARISH'))sig.classList.add('signal-bearish');else sig.classList.add('signal-neutral');sig.textContent=pcra.current_pcr.toFixed(3);}
+            }
+
+            // Max Pain
+            if(currentData&&currentData.max_pain_analysis){
+                const mp=currentData.max_pain_analysis;
+                const curEl=document.getElementById('trends-maxpain-current'); const strEl=document.getElementById('trends-maxpain-strike'); const distEl=document.getElementById('trends-maxpain-distance'); const dpEl=document.getElementById('trends-maxpain-distance-pct');
+                if(curEl)curEl.textContent=mp.current_price!=null?Number(mp.current_price).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):(currentData.underlying_value?Number(currentData.underlying_value).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'-');
+                if(strEl)strEl.textContent=mp.max_pain_strike!=null?Number(mp.max_pain_strike).toLocaleString():'-';
+                if(distEl)distEl.textContent=mp.distance!=null?Number(mp.distance).toFixed(2)+' pts':'-';
+                if(dpEl)dpEl.textContent=mp.distance_pct!=null?Number(mp.distance_pct).toFixed(2)+'%':'-';
+            }
+
+            // VIX
+            try{const vix=(stats&&stats.vix)?Number(stats.vix):(currentData&&currentData.vix?Number(currentData.vix):null);const vc=(stats&&typeof stats.vix_change!=='undefined')?stats.vix_change:(currentData&&currentData.vix_change?currentData.vix_change:null);const ve=document.getElementById('trends-vix-value');const vce=document.getElementById('trends-vix-change');if(ve)ve.textContent=vix!==null&&!isNaN(vix)?vix.toFixed(2):'-';if(vce)vce.textContent=vc!==null&&!isNaN(vc)?(vc>=0?'+':'')+Number(vc).toFixed(2)+'%':'';if(ve&&vix!==null&&!isNaN(vix)){if(vix<13)ve.style.color='#4CAF50';else if(vix>18)ve.style.color='#FF6B6B';else ve.style.color='#FFA500';}}catch(e){}
+
+            // Fast movers
+            if(currentData&&currentData.fast_moving_options){
+                const fm=currentData.fast_moving_options;
+                const fTbody=document.getElementById('fast-movers-table');
+                if(fTbody&&fm.top_movers&&fm.top_movers.length>0){fTbody.innerHTML=fm.top_movers.slice(0,8).map(o=>{const dc=o.direction==='BULLISH'?'#4CAF50':o.direction==='BEARISH'?'#FF6B6B':'#FFA500';let uc='Monitor';if(Math.abs(o.gamma)>0.001&&o.iv<30&&o.direction==='BULLISH')uc='Scalp candidate';else if(Math.abs(o.gamma)>0.001&&o.direction==='BEARISH')uc='Hedge/Scalp';else if(o.iv>40)uc='Caution (high IV)';return `<tr><td><strong>${o.strike}</strong></td><td>${o.type}</td><td><span style="color:${dc};font-weight:bold;">${o.direction}</span></td><td>${o.gamma.toFixed(6)}</td><td>${o.delta.toFixed(4)}</td><td>${(o.oi/1000).toFixed(1)}K</td><td style="font-weight:700;">${uc}</td><td>${o.iv.toFixed(2)}</td></tr>`;}).join('');}
+                const dEl=document.getElementById('fast-movers-direction');if(dEl){dEl.textContent=fm.overall_direction||'MIXED';dEl.style.color=fm.overall_direction==='BULLISH'?'#4CAF50':fm.overall_direction==='BEARISH'?'#FF6B6B':'#FFA500';}
+            }
+
+            // Enhanced V2.0 score
+            try {
+                const spot=currentData&&currentData.underlying_value?Number(currentData.underlying_value):(stats.current_price?Number(stats.current_price):0);
+                const maxpain=currentData&&currentData.max_pain_analysis&&currentData.max_pain_analysis.max_pain_strike?Number(currentData.max_pain_analysis.max_pain_strike):0;
+                const oi_pcr=(stats&&stats.pcr_analysis&&(stats.pcr_analysis.pcr_oi||stats.pcr_analysis.current_pcr))?Number(stats.pcr_analysis.pcr_oi||stats.pcr_analysis.current_pcr):0;
+                const iv_ce=currentData&&currentData.iv_analysis&&currentData.iv_analysis.avg_ce_iv?Number(currentData.iv_analysis.avg_ce_iv):(currentData&&currentData.iv_analysis&&currentData.iv_analysis.atm_iv?Number(currentData.iv_analysis.atm_iv):0);
+                const iv_pe=currentData&&currentData.iv_analysis&&currentData.iv_analysis.avg_pe_iv?Number(currentData.iv_analysis.avg_pe_iv):0;
+                let gamma_ce=0,gamma_pe=0,delta_ce=0,theta_ce=0,theta_pe=0;
+                if(currentData&&currentData.greeks_analysis&&Array.isArray(currentData.greeks_analysis.greeks)&&currentData.greeks_analysis.greeks.length>0){const ga=currentData.greeks_analysis.greeks;const atm=ga[Math.floor(ga.length/2)];if(atm&&atm.ce){gamma_ce=Number(atm.ce.gamma||0);delta_ce=Number(atm.ce.delta||0);theta_ce=Number(atm.ce.theta||0);}if(atm&&atm.pe){gamma_pe=Number(atm.pe.gamma||0);theta_pe=Number(atm.pe.theta||0);}}
+                const vega=currentData&&currentData.portfolio_greeks&&currentData.portfolio_greeks.portfolio_vega?Number(currentData.portfolio_greeks.portfolio_vega):0;
+                const vix=stats&&stats.vix?Number(stats.vix):0; const vix_chg=stats&&stats.vix_change?Number(stats.vix_change):0;
+                let breadth=0;
+                if(stocksData&&stocksData.insights&&stocksData.insights.breadth_ratio!==undefined)breadth=Number(stocksData.insights.breadth_ratio)/100.0;
+                else if(stocksData&&stocksData.trend){const adv=Number(stocksData.trend.advancers||0);const dec=Number(stocksData.trend.decliners||0);const tot=adv+dec;breadth=tot>0?(adv-dec)/tot:0;}
+                let score=0;
+                if(spot>maxpain*1.005)score+=2.0;else if(spot>maxpain)score+=1.0;else if(spot<maxpain*0.995)score-=1.0;
+                if(oi_pcr>1.3)score+=2.0;else if(oi_pcr>1.0)score+=1.0;else if(oi_pcr<0.7)score-=2.0;
+                let iv_skew=0; if(iv_ce!==0)iv_skew=((iv_pe-iv_ce)/Math.abs(iv_ce))*100.0;
+                if(iv_skew>10)score-=1.5;else if(iv_skew<-5)score+=1.5;
+                const gamma_diff=(gamma_ce-gamma_pe)||0; if(gamma_diff>0.001)score+=1.0;else if(gamma_diff<-0.001)score-=1.0;
+                if(delta_ce>0.55)score+=1.0;else if(delta_ce<0.45)score-=1.0;
+                let theta_ratio=1.0; if(Math.abs(theta_pe)>0)theta_ratio=Math.abs(theta_ce)/Math.abs(theta_pe);
+                if(theta_ratio<0.9)score+=0.5;else if(theta_ratio>1.1)score-=0.5;
+                if(vix<13&&vix_chg<-3)score+=1.5;else if(vix>18)score-=1.5;
+                if(breadth>0.015)score+=1.5;else if(breadth<-0.015)score-=1.5;
+                if(vega>20&&vix_chg<0)score+=0.5;
+                const roundedScore=Math.round(score*100)/100;
+                let decision='NEUTRAL'; if(roundedScore>=3.0)decision='▶ BULLISH';else if(roundedScore<=-3.0)decision='BEARISH';
+                const esEl=document.getElementById('enhanced-score'); const edEl=document.getElementById('enhanced-decision');
+                if(esEl){esEl.textContent=roundedScore.toFixed(2);esEl.style.color=roundedScore>=2.0?'#4CAF50':roundedScore<=-2.0?'#FF6B6B':'#FFA500';}
+                if(edEl){edEl.textContent=decision;edEl.style.color=decision.includes('BULL')?'#4CAF50':decision.includes('BEAR')?'#FF6B6B':'var(--text-secondary)';}
+                try{const ds=(+(spot>maxpain?1:0))+(+(oi_pcr>1?1:0))+(+(breadth>0?1:0));const vs=(+(iv_skew>5?1:0))+(+(vix>15?1:0))+(+(vega>20?1:0));const ss=(+(gamma_diff>0?1:0))+(+(delta_ce>0.5?1:0))+(+(theta_ratio<1?1:0));const dEl2=document.getElementById('enh-directional-verdict');const vEl=document.getElementById('enh-volatility-verdict');const sEl=document.getElementById('enh-structure-verdict');if(dEl2){dEl2.textContent=ds>=2?'Mild Bullish':(ds<=0?'Mild Bearish':'Neutral');dEl2.style.color=ds>=2?'#4CAF50':(ds<=0?'#FF6B6B':'#FFA500');}if(vEl){vEl.textContent=vs>=2?'Volatile':(vs<=0?'Stable':'Mixed');vEl.style.color=vs>=2?'#FF6B6B':(vs<=0?'#4CAF50':'#FFA500');}if(sEl){sEl.textContent=ss>=2?'Tail Risk':(ss<=0?'Structure OK':'Neutral');sEl.style.color=ss>=2?'#FF6B6B':(ss<=0?'#4CAF50':'#FFA500');}}catch(e){}
+                const spot_s=Number.isFinite(spot)?spot.toFixed(2):'-';const mp_s=Number.isFinite(maxpain)&&maxpain!==0?maxpain.toFixed(0):'-';const diff_s=(Number.isFinite(spot)&&Number.isFinite(maxpain))?(spot-maxpain).toFixed(2):'-';
+                const setF=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+                setF('enh-factor-1',`${spot_s} / ${mp_s} (${diff_s} pts)`);setF('enh-factor-2',oi_pcr!=null?Number(oi_pcr).toFixed(3):'-');setF('enh-factor-3',Number.isFinite(iv_skew)?iv_skew.toFixed(2)+'%':'-');setF('enh-factor-4',Number.isFinite(gamma_diff)?gamma_diff.toFixed(4):'-');setF('enh-factor-5',Number.isFinite(delta_ce)?delta_ce.toFixed(3):'-');setF('enh-factor-6',Number.isFinite(theta_ratio)?theta_ratio.toFixed(2):'-');setF('enh-factor-7',`${Number.isFinite(vix)?vix.toFixed(2):'-'} / ${Number.isFinite(vix_chg)?vix_chg.toFixed(2)+'%':'-'}`);setF('enh-factor-8',(breadth!==undefined&&breadth!==null)?((Math.abs(breadth)<0.0001)?'0.00%':((breadth*100).toFixed(2)+'%')):'-');setF('enh-factor-9',Number.isFinite(vega)?vega.toFixed(2):'-');
+            } catch(e){console.warn('Enhanced V2.0 error',e);}
+
+            // Sort trends and render table
+            let trends=(data.recent_trends||[]).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+            trendsCache=trends.slice();
+            try{renderTrendsTable(trendsCache,'last10');}catch(e){}
+            if(trends.length>0){
+                try{plotTrendChart(trends);}catch(e){}
+                try{plotCallPutWritingChart(trends);}catch(e){}
+                try{plotMaxPainSpotChart(trends);}catch(e){}
+                fetch('/api/analyze-options').then(r=>r.json()).then(opt=>{try{const rows=opt.rows||opt.data||[];const sp=Number(opt.underlying_value||opt.underlyingValue||0);plotOiByStrikeChart(rows,sp);}catch(e){}}).catch(()=>{});
+            }
+
+            // PCR by expiry / options chain
+            try{fetchAndRenderPcrByExpiry();}catch(e){}
+            try{fetchAndRenderOptionsChain();}catch(e){}
+
+            updateGlobalBias(currentData,stocksData);
+
+            document.getElementById('trends-loading').style.display='none';
+            document.getElementById('trends-content').classList.remove('hidden');
+
+            setTimeout(()=>{try{if(window.oiByStrikeChartInstance){window.oiByStrikeChartInstance.resize();window.oiByStrikeChartInstance.update();}}catch(e){}try{if(window.callPutWritingChartInstance){window.callPutWritingChartInstance.resize();window.callPutWritingChartInstance.update();}}catch(e){}try{if(window.trendChartInstance){window.trendChartInstance.resize();window.trendChartInstance.update();}}catch(e){}try{if(window.maxPainSpotChartInstance){window.maxPainSpotChartInstance.resize();window.maxPainSpotChartInstance.update();}}catch(e){}},60);
+        } catch(err) { document.getElementById('trends-loading').innerHTML='<p style="color:red;">Error displaying trends: '+err.message+'</p>'; console.error('displayTrendsData error',err); }
+    }
+
+    async function fetchNow() {
+        try {
+            const [optRes, stockRes] = await Promise.all([fetch('/api/analyze-options'), fetch('/api/analyze-stocks')]);
+            if (!optRes.ok) throw new Error('Options API returned '+optRes.status);
+            const optPayload = await optRes.json();
+            const stockPayload = stockRes.ok ? await stockRes.json() : null;
+            receivedData = true; currentData = optPayload; stocksDataLocal = stockPayload;
+            loadTrendsData();
+        } catch(e) { console.error('fetchNow failed',e); alert('Fetch failed: '+e.message); }
+    }
+
+    // Socket.IO
+    const socket = io();
+    window._socket = socket;
+    socket.on('connect', () => socket.emit('request_analysis'));
+    socket.on('analysis_data', (data) => { currentData = data; receivedData = true; });
+    socket.on('current_expiry', (data) => {
+        const parts=data.expiry.split('-'); const mm={'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'};
+        document.getElementById('expiryInput').value=`${parts[2]}-${mm[parts[1]]}-${parts[0]}`;
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTrendsData();
+        refreshNiftyFutures();
+        trendsRefreshInterval = setInterval(loadTrendsData, 15000);
+        futuresRefreshInterval = setInterval(refreshNiftyFutures, 15000);
+        setTimeout(() => { try{buildStrategiesTab();}catch(e){} }, 2000);
+    });
+</script>
+{% endblock %}

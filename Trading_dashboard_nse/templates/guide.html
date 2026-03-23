@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Guide — Nifty Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    #guide-markdown h1 { font-size: 1.6em; color: var(--accent); margin: 20px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    #guide-markdown h2 { font-size: 1.3em; color: #b0b8d4; margin: 16px 0 8px; }
+    #guide-markdown h3 { font-size: 1.1em; color: var(--text-primary); margin: 12px 0 6px; }
+    #guide-markdown p { line-height: 1.7; margin: 8px 0; color: var(--text-secondary); }
+    #guide-markdown ul, #guide-markdown ol { padding-left: 24px; margin: 8px 0; color: var(--text-secondary); line-height: 1.9; }
+    #guide-markdown code { background: rgba(0,191,255,0.1); padding: 2px 5px; border-radius: 3px; font-size: 0.9em; color: var(--accent); }
+    #guide-markdown pre { background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; overflow-x: auto; border-left: 3px solid var(--accent); margin: 12px 0; }
+    #guide-markdown pre code { background: none; color: #e6e6fa; }
+    #guide-markdown blockquote { border-left: 3px solid var(--accent); padding: 4px 16px; margin: 12px 0; background: rgba(0,191,255,0.04); color: var(--text-secondary); font-style: italic; }
+    #guide-markdown hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    #guide-markdown table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    #guide-markdown th { background: rgba(0,191,255,0.1); padding: 8px 12px; text-align: left; border: 1px solid var(--border); font-size: 12px; }
+    #guide-markdown td { padding: 6px 12px; border: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    #guide-markdown tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 900px; margin: 0 auto; padding: 20px;">
+    <div class="card-header" style="font-size: 1.2em; margin-bottom: 16px;">
+        📖 Trading Guide &amp; Reference
+        <button onclick="loadGuide()" style="margin-left: 12px; padding: 6px 14px; background: var(--accent); border: none; color: var(--dark-bg); font-weight: 700; border-radius: 6px; cursor: pointer; font-size: 12px;">🔄 Refresh</button>
+    </div>
+
+    <div id="guide-loading" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+        <div class="spinner"></div>
+        <p style="margin-top: 12px;">Loading guide content…</p>
+    </div>
+
+    <div id="guide-content" style="display: none;">
+        <div id="guide-markdown" style="line-height: 1.7;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function loadGuide() {
+        const guideLoading = document.getElementById('guide-loading');
+        const guideContent = document.getElementById('guide-content');
+        const guideMarkdown = document.getElementById('guide-markdown');
+
+        if (!guideMarkdown) { console.error('[GUIDE] guide-markdown element not found'); return; }
+        if (guideLoading) { guideLoading.style.display = 'block'; guideLoading.innerHTML = '<div class="spinner"></div><p style="margin-top:12px;">Loading guide content…</p>'; }
+        if (guideContent) guideContent.style.display = 'none';
+
+        fetch('/api/get-guide')
+            .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`); return res.json(); })
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'API returned success=false');
+                if (!data.content) throw new Error('API returned empty content');
+
+                let html = '';
+                try {
+                    if (window.marked && typeof window.marked.parse === 'function') {
+                        html = window.marked.parse(data.content);
+                    } else if (window.marked && typeof window.marked === 'function') {
+                        html = window.marked(data.content);
+                    } else {
+                        html = '<pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;">' + escapeHtml(data.content) + '</pre>';
+                    }
+                } catch(parseErr) {
+                    console.error('[GUIDE] Markdown parse error:', parseErr);
+                    html = '<pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;">' + escapeHtml(data.content) + '</pre>';
+                }
+
+                guideMarkdown.innerHTML = html;
+                if (guideLoading) guideLoading.style.display = 'none';
+                if (guideContent) guideContent.style.display = 'block';
+            })
+            .catch(err => {
+                console.error('[GUIDE] Error:', err);
+                if (guideLoading) {
+                    guideLoading.style.display = 'block';
+                    guideLoading.innerHTML = '<div style="color:#FF6B6B;padding:20px;background:rgba(255,107,107,0.1);border-radius:8px;"><strong>Failed to load guide:</strong><br><code style="font-size:12px;color:#FFB6B6;">' + escapeHtml(err.message) + '</code><br><br><button onclick="loadGuide()" style="padding:8px 16px;background:var(--accent);border:none;color:var(--dark-bg);font-weight:700;border-radius:6px;cursor:pointer;">🔄 Retry</button></div>';
+                }
+            });
+    }
+
+    function debugGuideTab() {
+        console.log('\n' + '='.repeat(60));
+        console.log('GUIDE TAB DEBUG');
+        console.log('='.repeat(60));
+        ['guide-loading','guide-content','guide-markdown'].forEach(id => {
+            const el = document.getElementById(id);
+            console.log(`  #${id}:`, el ? { display: el.style.display, contentLen: el.innerHTML.length } : 'NOT FOUND');
+        });
+        console.log('  marked available:', typeof window.marked);
+        console.log('='.repeat(60));
+    }
+
+    document.addEventListener('DOMContentLoaded', loadGuide);
+</script>
+{% endblock %}

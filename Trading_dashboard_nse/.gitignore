@@ -1,0 +1,15 @@
+# Secrets — never commit these
+.env
+*.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Data files with potentially sensitive snapshots
+data/*.json
+
+# Logs
+*.log
+flask.log

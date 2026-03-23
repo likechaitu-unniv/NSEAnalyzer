@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Greeks — Nifty Dashboard{% endblock %}
+
+{% block content %}
+<div id="greeks-loading" class="loading">
+    <div class="spinner"></div>
+    <p>Connecting to market data...</p>
+</div>
+<div id="greeks-content" class="hidden">
+    <div class="dashboard-grid">
+        <!-- Greeks Overview -->
+        <div class="card">
+            <div class="card-header">ξ Greeks Overview</div>
+            <div class="metric-item">
+                <div class="metric-label">Expiry</div>
+                <div class="metric-value" id="greeks-expiry" style="font-size: 1.2em;">-</div>
+            </div>
+            <div class="metric-item" style="margin-top: 8px;">
+                <div class="metric-label">Days to Expiry</div>
+                <div class="metric-value" id="greeks-days" style="font-size: 1.4em;">-</div>
+            </div>
+        </div>
+
+        <!-- ATM Call Greeks -->
+        <div class="card">
+            <div class="card-header">🎯 ATM Greeks (CE)</div>
+            <div class="metric-item">
+                <div class="metric-label">Delta</div>
+                <div class="metric-value" id="greeks-ce-delta">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Gamma</div>
+                <div class="metric-value" id="greeks-ce-gamma" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Theta</div>
+                <div class="metric-value" id="greeks-ce-theta" style="font-size: 1.1em;">-</div>
+            </div>
+        </div>
+
+        <!-- ATM Put Greeks -->
+        <div class="card">
+            <div class="card-header">🎯 ATM Greeks (PE)</div>
+            <div class="metric-item">
+                <div class="metric-label">Delta</div>
+                <div class="metric-value" id="greeks-pe-delta">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Gamma</div>
+                <div class="metric-value" id="greeks-pe-gamma" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">Theta</div>
+                <div class="metric-value" id="greeks-pe-theta" style="font-size: 1.1em;">-</div>
+            </div>
+        </div>
+
+        <!-- Vega & IV -->
+        <div class="card">
+            <div class="card-header">📊 Vega &amp; IV</div>
+            <div class="metric-item">
+                <div class="metric-label">CE Vega</div>
+                <div class="metric-value" id="greeks-ce-vega" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">PE Vega</div>
+                <div class="metric-value" id="greeks-pe-vega" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">CE IV</div>
+                <div class="metric-value" id="greeks-ce-iv" style="font-size: 1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">PE IV</div>
+                <div class="metric-value" id="greeks-pe-iv" style="font-size: 1em;">-</div>
+            </div>
+        </div>
+
+        <!-- Open Interest -->
+        <div class="card">
+            <div class="card-header">📊 Open Interest</div>
+            <div class="metric-item">
+                <div class="metric-label">CE OI</div>
+                <div class="metric-value" id="greeks-ce-oi" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item">
+                <div class="metric-label">PE OI</div>
+                <div class="metric-value" id="greeks-pe-oi" style="font-size: 1.1em;">-</div>
+            </div>
+            <div class="metric-item" style="margin-top: 8px;">
+                <div class="metric-label">OI Ratio</div>
+                <div class="metric-value" id="greeks-oi-ratio" style="font-size: 1.2em;">-</div>
+            </div>
+        </div>
+
+        <!-- Portfolio Delta -->
+        <div class="card">
+            <div class="card-header">Δ Portfolio Delta</div>
+            <div class="metric-item">
+                <div class="metric-label">Net Delta</div>
+                <div class="metric-value" id="greeks-portfolio-delta" style="font-size: 1.3em;">-</div>
+            </div>
+            <div class="signal-badge signal-neutral" id="greeks-delta-signal" style="margin-top:6px;">-</div>
+            <div style="margin-top:6px; font-size:11px; color:var(--text-secondary);" id="greeks-delta-bias">-</div>
+            <div style="margin-top:4px; font-size:11px; color:var(--text-secondary);" id="greeks-equiv-futures"></div>
+            <div id="greeks-delta-traffic" class="greek-blast greek-low" style="margin-top:8px; padding:4px 8px; border-radius:4px; font-size:11px;">Delta: LOW</div>
+        </div>
+
+        <!-- Gamma Risk -->
+        <div class="card">
+            <div class="card-header">Γ Gamma &amp; Risk</div>
+            <div class="metric-item">
+                <div class="metric-label">Portfolio Gamma</div>
+                <div class="metric-value" id="greeks-portfolio-gamma" style="font-size: 1.2em;">-</div>
+            </div>
+            <div class="signal-badge signal-neutral" id="greeks-gamma-signal" style="margin-top:6px;">-</div>
+            <div id="greeks-gamma-traffic" class="greek-blast greek-low" style="margin-top:8px; padding:4px 8px; border-radius:4px; font-size:11px;">Gamma: LOW</div>
+            <div class="metric-item" style="margin-top: 8px;">
+                <div class="metric-label">Portfolio Theta</div>
+                <div class="metric-value" id="greeks-portfolio-theta" style="font-size: 1.1em;">-</div>
+            </div>
+            <div id="greeks-theta-traffic" class="greek-blast greek-low" style="margin-top:4px; padding:4px 8px; border-radius:4px; font-size:11px;">Theta: NORMAL</div>
+            <div class="metric-item" style="margin-top: 8px;">
+                <div class="metric-label">Portfolio Vega</div>
+                <div class="metric-value" id="greeks-portfolio-vega" style="font-size: 1.1em;">-</div>
+            </div>
+            <div id="greeks-vega-traffic" class="greek-blast greek-low" style="margin-top:4px; padding:4px 8px; border-radius:4px; font-size:11px;">Vega: NORMAL</div>
+        </div>
+    </div>
+
+    <!-- Greeks Chain Table -->
+    <div class="card" style="grid-column: 1 / -1; margin-top: 12px;">
+        <div class="card-header">ξ Greeks by Strike Price</div>
+        <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div id="greeks-column-toggles" style="display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto;"></div>
+            <div id="greeks-filter-controls" style="display:flex; gap:8px; align-items:center;">
+                <label style="font-size:12px; color:var(--text-secondary);">Filter:</label>
+                <select id="greeks-filter-mode" style="padding:6px; background:var(--card-bg); border:1px solid var(--border); color:var(--text-primary);">
+                    <option value="all">All</option>
+                    <option value="plusminus">+/- N from Spot</option>
+                    <option value="plus">+N from Spot</option>
+                    <option value="minus">-N from Spot</option>
+                </select>
+                <input id="greeks-filter-n" type="number" min="1" value="10" style="width:60px; padding:6px; background:var(--card-bg); border:1px solid var(--border); color:var(--text-primary);" title="N (price units)" />
+                <button id="greeks-filter-apply" style="padding:6px 8px; background:var(--accent); border:none; color:var(--dark-bg); font-weight:600; border-radius:4px; cursor:pointer;">Apply</button>
+            </div>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="table-compact">
+                <thead id="greeks-table-head"><tr></tr></thead>
+                <tbody id="greeks-table-body">
+                    <tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentData = null;
+    let greeksData = null;
+    let receivedData = false;
+
+    // Greeks column config
+    const greeksColumnLabels = {
+        'strike': 'Strike', 'ce_delta': 'CE Δ', 'ce_gamma': 'CE Γ', 'ce_theta': 'CE Θ',
+        'pe_delta': 'PE Δ', 'pe_gamma': 'PE Γ', 'pe_theta': 'PE Θ', 'ce_oi': 'CE OI', 'pe_oi': 'PE OI'
+    };
+    let greeksColumnOrder = Object.keys(greeksColumnLabels);
+    let greeksSelectedColumns = new Set(greeksColumnOrder);
+
+    function getGreekClass(field, numericValue) {
+        if (numericValue === null || numericValue === undefined || isNaN(numericValue)) return 'greek-low';
+        const v = Math.abs(Number(numericValue));
+        if (field === 'gamma') {
+            if (v < 0.0005) return 'greek-low';
+            if (v < 0.002) return 'greek-medium';
+            if (v < 0.01) return 'greek-high';
+            return 'greek-extreme';
+        }
+        if (field === 'delta') {
+            let base = 'greek-low';
+            if (v < 0.1) base = 'greek-low';
+            else if (v < 0.3) base = 'greek-medium';
+            else if (v < 0.7) base = 'greek-high';
+            else base = 'greek-extreme';
+            const signClass = Number(numericValue) > 0 ? 'delta-pos' : Number(numericValue) < 0 ? 'delta-neg' : 'delta-neutral';
+            return base + ' ' + signClass;
+        }
+        if (field === 'theta') { if (v < 0.1) return 'greek-low'; if (v < 0.5) return 'greek-medium'; if (v < 1) return 'greek-high'; return 'greek-extreme'; }
+        if (field === 'vega') { if (v < 0.5) return 'greek-low'; if (v < 1) return 'greek-medium'; if (v < 2) return 'greek-high'; return 'greek-extreme'; }
+        return 'greek-low';
+    }
+
+    function getGreeksFilterSettings() {
+        try {
+            const mode = document.getElementById('greeks-filter-mode') ? document.getElementById('greeks-filter-mode').value : 'all';
+            const nVal = document.getElementById('greeks-filter-n') ? parseFloat(document.getElementById('greeks-filter-n').value) : 10;
+            return { mode: mode || 'all', n: isNaN(nVal) ? 10 : nVal };
+        } catch (e) { return { mode: 'all', n: 10 }; }
+    }
+
+    function createGreeksColumnToggles() {
+        const container = document.getElementById('greeks-column-toggles');
+        container.innerHTML = '';
+        greeksColumnOrder.forEach(key => {
+            const label = document.createElement('label');
+            label.style.cssText = 'background:rgba(0,191,255,0.15);padding:4px 8px;border-radius:4px;font-size:11px;border:1px solid var(--border);cursor:pointer;';
+            label.innerHTML = `<input type="checkbox" ${greeksSelectedColumns.has(key) ? 'checked' : ''} onchange="toggleGreeksColumn('${key}')" style="margin-right:4px;"> ${greeksColumnLabels[key]}`;
+            container.appendChild(label);
+        });
+    }
+
+    function toggleGreeksColumn(key) {
+        if (greeksSelectedColumns.has(key)) greeksSelectedColumns.delete(key);
+        else greeksSelectedColumns.add(key);
+        renderGreeksTable();
+    }
+
+    function renderGreeksTable(data) {
+        const dataToUse = data || greeksData;
+        if (!dataToUse || !dataToUse.greeks_analysis || !dataToUse.greeks_analysis.greeks) return;
+        const greeksArray = dataToUse.greeks_analysis.greeks;
+        const visibleOrder = greeksColumnOrder.filter(key => greeksSelectedColumns.has(key));
+        document.getElementById('greeks-table-head').innerHTML = '<tr>' + visibleOrder.map(key => `<th>${greeksColumnLabels[key]}</th>`).join('') + '</tr>';
+        const tbody = document.getElementById('greeks-table-body');
+        if (!tbody) return;
+
+        const filter = getGreeksFilterSettings();
+        let dataRows = greeksArray;
+        if (filter.mode && filter.mode !== 'all') {
+            const spot = Number((dataToUse.underlying_value || dataToUse.current_price) || 0);
+            const n = Number(filter.n) || 10;
+            dataRows = greeksArray.filter(r => {
+                const strike = Number(r.strike);
+                if (isNaN(strike)) return false;
+                if (filter.mode === 'plusminus') return Math.abs(strike - spot) <= n;
+                if (filter.mode === 'plus') return strike >= spot && strike <= (spot + n);
+                if (filter.mode === 'minus') return strike <= spot && strike >= (spot - n);
+                return true;
+            });
+        }
+
+        let recommended = null;
+        try {
+            let bestScore = -1;
+            dataRows.forEach(r => {
+                if (r.ce && r.ce.gamma !== undefined && r.ce.oi !== undefined) { const s = Math.abs(Number(r.ce.gamma)) * Number(r.ce.oi||0); if (!isNaN(s) && s > bestScore) { bestScore = s; recommended = { strike: r.strike, side: 'ce' }; } }
+                if (r.pe && r.pe.gamma !== undefined && r.pe.oi !== undefined) { const s = Math.abs(Number(r.pe.gamma)) * Number(r.pe.oi||0); if (!isNaN(s) && s > bestScore) { bestScore = s; recommended = { strike: r.strike, side: 'pe' }; } }
+            });
+        } catch(e) {}
+
+        tbody.innerHTML = dataRows.map((row) => {
+            const cells = visibleOrder.map(key => {
+                let display = '--';
+                try {
+                    if (key === 'strike') {
+                        display = recommended && Number(recommended.strike) === Number(row.strike) ? `<strong style="color:var(--accent);">${row.strike}</strong>` : `<span>${row.strike}</span>`;
+                    } else if (key.startsWith('ce_')) {
+                        const field = key.replace('ce_', '');
+                        if (row.ce && row.ce[field] !== undefined) {
+                            const raw = row.ce[field];
+                            if (['delta','gamma','theta','vega'].includes(field)) {
+                                const fmtd = parseFloat(raw).toFixed(field === 'gamma' ? 6 : 3);
+                                const cls = getGreekClass(field, raw);
+                                display = `<span class="greek-blast ${cls}">${fmtd}</span>`;
+                                if (recommended && recommended.side === 'ce' && Number(recommended.strike) === Number(row.strike)) display = `<span class="recommended">${display}</span>`;
+                            } else { display = row.ce[field]; }
+                        }
+                    } else if (key.startsWith('pe_')) {
+                        const field = key.replace('pe_', '');
+                        if (row.pe && row.pe[field] !== undefined) {
+                            const raw = row.pe[field];
+                            if (['delta','gamma','theta','vega'].includes(field)) {
+                                const fmtd = parseFloat(raw).toFixed(field === 'gamma' ? 6 : 3);
+                                const cls = getGreekClass(field, raw);
+                                display = `<span class="greek-blast ${cls}">${fmtd}</span>`;
+                                if (recommended && recommended.side === 'pe' && Number(recommended.strike) === Number(row.strike)) display = `<span class="recommended">${display}</span>`;
+                            } else { display = row.pe[field]; }
+                        }
+                    }
+                } catch(e) {}
+                return `<td>${display}</td>`;
+            }).join('');
+            return `<tr>${cells}</tr>`;
+        }).join('');
+    }
+
+    function displayGreeksData(data) {
+        if (!data || !data.greeks_analysis) {
+            document.getElementById('greeks-loading').innerHTML = '<p>Greeks analysis not available</p>';
+            return;
+        }
+        greeksData = data;
+        const greeks = data.greeks_analysis;
+        if (!greeks.greeks || greeks.greeks.length === 0) {
+            document.getElementById('greeks-loading').innerHTML = '<p>Greeks data not available</p>';
+            return;
+        }
+        document.getElementById('greeks-expiry').textContent = greeks.expiry_date || '-';
+        document.getElementById('greeks-days').textContent = (greeks.time_to_expiry_years * 365).toFixed(0) + ' days';
+
+        const atm = greeks.greeks[Math.floor(greeks.greeks.length / 2)];
+
+        function applyGammaColor(elemId, rawValue) {
+            try {
+                const el = document.getElementById(elemId);
+                if (!el) return;
+                el.classList.remove('gamma-low','gamma-medium','gamma-high','gamma-extreme','gamma-blast');
+                el.classList.add('gamma-blast');
+                const v = Math.abs(parseFloat(rawValue));
+                if (isNaN(v)) { el.classList.add('gamma-low'); return; }
+                if (v < 0.0005) el.classList.add('gamma-low');
+                else if (v < 0.002) el.classList.add('gamma-medium');
+                else if (v < 0.01) el.classList.add('gamma-high');
+                else el.classList.add('gamma-extreme');
+            } catch(e) {}
+        }
+
+        if (atm && atm.ce && atm.pe) {
+            document.getElementById('greeks-ce-delta').textContent = parseFloat(atm.ce.delta).toFixed(3);
+            document.getElementById('greeks-ce-gamma').textContent = parseFloat(atm.ce.gamma).toFixed(6);
+            applyGammaColor('greeks-ce-gamma', atm.ce.gamma);
+            document.getElementById('greeks-ce-theta').textContent = parseFloat(atm.ce.theta).toFixed(2);
+            document.getElementById('greeks-ce-vega').textContent = parseFloat(atm.ce.vega).toFixed(2);
+            document.getElementById('greeks-ce-iv').textContent = atm.ce.iv + '%';
+            document.getElementById('greeks-ce-oi').textContent = (atm.ce.oi / 1000000).toFixed(2) + 'M';
+            document.getElementById('greeks-pe-delta').textContent = parseFloat(atm.pe.delta).toFixed(3);
+            document.getElementById('greeks-pe-gamma').textContent = parseFloat(atm.pe.gamma).toFixed(6);
+            applyGammaColor('greeks-pe-gamma', atm.pe.gamma);
+            document.getElementById('greeks-pe-theta').textContent = parseFloat(atm.pe.theta).toFixed(2);
+            document.getElementById('greeks-pe-vega').textContent = parseFloat(atm.pe.vega).toFixed(2);
+            document.getElementById('greeks-pe-iv').textContent = atm.pe.iv + '%';
+            document.getElementById('greeks-pe-oi').textContent = (atm.pe.oi / 1000000).toFixed(2) + 'M';
+            document.getElementById('greeks-oi-ratio').textContent = (atm.pe.oi / atm.ce.oi).toFixed(3);
+        }
+
+        // Portfolio Greeks
+        if (data.portfolio_greeks) {
+            const pg = data.portfolio_greeks;
+            document.getElementById('greeks-portfolio-delta').textContent = pg.portfolio_delta || 0;
+            document.getElementById('greeks-delta-bias').textContent = pg.delta_bias || '-';
+            try {
+                const netDelta = Number(pg.portfolio_delta || 0);
+                const eqLots = Math.round(Math.abs(netDelta) / 50);
+                const eqElem = document.getElementById('greeks-equiv-futures');
+                if (eqElem) eqElem.textContent = (isFinite(eqLots) && eqLots > 0) ? `~${eqLots} futures lots (approx)` : '';
+            } catch(e) {}
+
+            const deltaBadge = document.getElementById('greeks-delta-signal');
+            if (deltaBadge) { deltaBadge.className = 'signal-badge'; const sig = pg.delta_signal || 'NEUTRAL'; deltaBadge.textContent = sig; if (sig.includes('BULLISH')) deltaBadge.classList.add('signal-bullish'); else if (sig.includes('BEARISH')) deltaBadge.classList.add('signal-bearish'); else deltaBadge.classList.add('signal-neutral'); }
+
+            const dt = document.getElementById('greeks-delta-traffic');
+            const net = Number(pg.portfolio_delta || 0);
+            if (dt) { if (Math.abs(net) > 5000) { dt.className='greek-blast greek-extreme'; dt.textContent=`Delta: STRONG (${net>0?'Bullish':'Bearish'})`; } else if (Math.abs(net) > 1500) { dt.className='greek-blast greek-high'; dt.textContent=`Delta: HIGH (${net>0?'Bullish':'Bearish'})`; } else if (Math.abs(net) > 500) { dt.className='greek-blast greek-medium'; dt.textContent=`Delta: MEDIUM (${net>0?'Bullish':'Bearish'})`; } else { dt.className='greek-blast greek-low'; dt.textContent='Delta: LOW'; } }
+
+            document.getElementById('greeks-portfolio-gamma').textContent = pg.portfolio_gamma || 0;
+            document.getElementById('greeks-portfolio-theta').textContent = pg.portfolio_theta || 0;
+            document.getElementById('greeks-portfolio-vega').textContent = pg.portfolio_vega || 0;
+
+            const gammaSignal = document.getElementById('greeks-gamma-signal');
+            if (gammaSignal) { gammaSignal.className = 'signal-badge'; const gr = pg.gamma_risk || 'MODERATE'; gammaSignal.textContent = gr; if (gr === 'HIGH') gammaSignal.classList.add('signal-bearish'); else if (gr === 'LOW') gammaSignal.classList.add('signal-bullish'); else gammaSignal.classList.add('signal-neutral'); }
+
+            const gVal = Number(pg.portfolio_gamma || 0);
+            const tVal = Number(pg.portfolio_theta || 0);
+            const vVal = Number(pg.portfolio_vega || 0);
+            const gT = document.getElementById('greeks-gamma-traffic'); if (gT) { if (Math.abs(gVal) > 1.0) { gT.className='greek-blast greek-extreme'; gT.textContent='Gamma: HIGH — avoid adding ATM weeklies'; } else if (Math.abs(gVal) > 0.3) { gT.className='greek-blast greek-high'; gT.textContent='Gamma: MEDIUM — caution'; } else { gT.className='greek-blast greek-low'; gT.textContent='Gamma: LOW'; } }
+            const tT = document.getElementById('greeks-theta-traffic'); if (tT) { if (Math.abs(tVal) > 500) { tT.className='greek-blast greek-high'; tT.textContent='Theta: HIGH — time decay sensitive'; } else { tT.className='greek-blast greek-low'; tT.textContent='Theta: NORMAL'; } }
+            const vT = document.getElementById('greeks-vega-traffic'); if (vT) { if (Math.abs(vVal) > 30) { vT.className='greek-blast greek-high'; vT.textContent='Vega: HIGH — volatility risk'; } else { vT.className='greek-blast greek-low'; vT.textContent='Vega: NORMAL'; } }
+        }
+
+        createGreeksColumnToggles();
+        renderGreeksTable(greeksData);
+
+        document.getElementById('greeks-loading').style.display = 'none';
+        document.getElementById('greeks-content').classList.remove('hidden');
+    }
+
+    async function fetchNow() {
+        try {
+            const res = await fetch('/api/analyze-options');
+            if (!res.ok) throw new Error('API returned ' + res.status);
+            const payload = await res.json();
+            receivedData = true; currentData = payload;
+            displayGreeksData(payload);
+        } catch(e) { console.error('fetchNow failed', e); alert('Fetch failed: ' + e.message); }
+    }
+
+    // Socket.IO
+    const socket = io();
+    window._socket = socket;
+    socket.on('connect', () => socket.emit('request_analysis'));
+    socket.on('analysis_data', (data) => { currentData = data; receivedData = true; displayGreeksData(data); });
+    socket.on('current_expiry', (data) => {
+        const parts = data.expiry.split('-');
+        const mm = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'};
+        document.getElementById('expiryInput').value = `${parts[2]}-${mm[parts[1]]}-${parts[0]}`;
+    });
+
+    // Attach filter Apply button
+    document.addEventListener('DOMContentLoaded', () => {
+        const applyBtn = document.getElementById('greeks-filter-apply');
+        if (applyBtn) applyBtn.onclick = () => renderGreeksTable(greeksData);
+    });
+
+    // 6-second watchdog fallback
+    setTimeout(async () => {
+        if (!receivedData) {
+            try {
+                const res = await fetch('/api/analyze-options');
+                if (res.ok) { const payload = await res.json(); receivedData = true; currentData = payload; displayGreeksData(payload); }
+            } catch(e) { console.warn('Watchdog fallback failed', e); }
+        }
+    }, 6000);
+</script>
+{% endblock %}

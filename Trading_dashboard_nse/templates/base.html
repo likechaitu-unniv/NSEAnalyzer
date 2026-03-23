@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nifty Dashboard{% endblock %}</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark-bg: #1a1f3a;
+            --card-bg: #252d4a;
+            --accent: #00bfff;
+            --success: #4CAF50;
+            --warning: #FFA500;
+            --danger: #FF6B6B;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8d4;
+            --border: #3a4563;
+        }
+
+        .gamma-blast { padding: 3px 6px; border-radius: 4px; display: inline-block; }
+        .gamma-low { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+        .gamma-medium { background: rgba(255,165,0,0.06); color: var(--warning); }
+        .gamma-high { background: rgba(255,107,107,0.08); color: var(--danger); }
+        .gamma-extreme { background: rgba(0,191,255,0.08); color: var(--accent); font-weight: 700; }
+
+        .greek-blast { padding: 3px 6px; border-radius: 4px; display: inline-block; }
+        .greek-low { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+        .greek-medium { background: rgba(255,165,0,0.06); color: var(--warning); }
+        .greek-high { background: rgba(255,107,107,0.08); color: var(--danger); }
+        .greek-extreme { background: rgba(0,191,255,0.08); color: var(--accent); font-weight: 700; }
+
+        .delta-pos { color: #4CAF50; }
+        .delta-pos.greek-low { background: rgba(76,175,80,0.06); }
+        .delta-pos.greek-medium { background: rgba(76,175,80,0.10); font-weight:700; }
+        .delta-neg { color: #FF6B6B; }
+        .delta-neg.greek-low { background: rgba(255,107,107,0.04); }
+        .delta-neg.greek-medium { background: rgba(255,107,107,0.08); font-weight:700; }
+        .delta-neutral { color: var(--text-secondary); }
+
+        .recommended { font-weight: 800; border-radius: 4px; padding: 2px 6px; background: rgba(0,191,255,0.06); color: var(--accent); }
+
+        .buildup-positive { color: #4CAF50; background: rgba(76,175,80,0.06); font-weight:700; padding:2px 6px; border-radius:4px; }
+        .buildup-negative { color: #FF6B6B; background: rgba(255,107,107,0.06); font-weight:700; padding:2px 6px; border-radius:4px; }
+        .buildup-neutral  { color: #FFA500; background: rgba(255,165,0,0.04); font-weight:600; padding:2px 6px; border-radius:4px; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 12px;
+            overflow-x: hidden;
+        }
+
+        .mega-header {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .mega-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px 0 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mega-header-top h1 { font-size: 1.25em; margin: 0; white-space: nowrap; }
+
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-controls button,
+        .header-controls input {
+            padding: 5px 11px;
+            background: var(--dark-bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .header-controls button:hover { background: var(--accent); color: var(--dark-bg); border-color: var(--accent); }
+
+        .mega-header-tabs {
+            display: flex;
+            gap: 0;
+            padding: 0 8px;
+            margin-top: 4px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 8px 14px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .tab-button:hover { color: var(--accent); }
+
+        .tab-button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .mega-header-bias {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            padding: 8px 16px 10px 16px;
+            flex-wrap: wrap;
+            background: linear-gradient(90deg, rgba(0,191,255,0.04), transparent);
+        }
+
+        .mega-header-bias-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-right: 1px solid var(--border);
+            padding-right: 16px;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .mega-header-bias-label { font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+        .mega-header-bias-value { font-size: 1.0em; font-weight: 700; color: var(--text-primary); }
+        .mega-header-bias-sub { font-size: 11px; color: var(--text-secondary); }
+
+        .mega-header-playbook { flex: 1; min-width: 220px; }
+        .mega-header-playbook-label { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .mega-header-playbook-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+        .header { display: none; }
+        .tabs   { display: none; }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        .page-content { animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            height: auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 600; }
+        .card-value { font-size: 1.8em; font-weight: bold; color: var(--text-primary); margin-bottom: 6px; }
+        .card-subtitle { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+
+        .card-change { font-size: 12px; padding: 4px 8px; border-radius: 4px; display: inline-block; width: fit-content; margin-top: 6px; }
+        .card-change.positive { background: rgba(76, 175, 80, 0.2); color: #4CAF50; }
+        .card-change.negative { background: rgba(255, 107, 107, 0.2); color: #FF6B6B; }
+
+        .card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+
+        .metric-item { font-size: 12px; }
+        .metric-label { color: var(--text-secondary); font-size: 11px; margin-bottom: 3px; }
+        .metric-value { font-size: 1.3em; font-weight: 600; color: var(--text-primary); }
+
+        .pcr-bar-container { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; }
+        .pcr-bar-track { flex: 1; height: 24px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; border: 1px solid rgba(255,255,255,0.15); overflow: hidden; }
+        .pcr-bar-fill { height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #FFA500 50%, #FF6B6B 100%); position: relative; display: flex; align-items: center; justify-content: center; }
+        .pcr-bar-marker { position: absolute; width: 2px; height: 100%; background: rgba(255,255,255,0.8); box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+        .pcr-bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); margin-top: 4px; padding: 0 2px; }
+        .pcr-bar-label-item { text-align: center; flex: 1; }
+
+        .advancers-decliners-bar-container { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; }
+        .advancers-decliners-bar-track { flex: 1; height: 32px; display: flex; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); }
+        .advancers-portion, .decliners-portion { display: flex; align-items: center; justify-content: center; transition: width 0.3s ease; position: relative; min-width: 40px; }
+        .portion-label { font-size: 12px; font-weight: 600; }
+        .advancers-decliners-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); margin-top: 4px; padding: 0 2px; }
+        .bar-label-item { flex: 1; }
+
+        .call-put-bar-container { display: flex; align-items: center; gap: 8px; margin-top: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; }
+        .call-put-bar-track { flex: 1; height: 32px; display: flex; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); }
+        .call-portion, .put-portion { display: flex; align-items: center; justify-content: center; transition: width 0.3s ease; position: relative; min-width: 40px; }
+        .call-put-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary); margin-top: 4px; padding: 0 2px; }
+
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
+        .list-item:last-child { border-bottom: none; }
+        .list-label { color: var(--text-secondary); }
+        .list-value { font-weight: 600; color: var(--text-primary); }
+
+        .progress-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin: 6px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #00ff88); border-radius: 2px; }
+
+        .chart-container { position: relative; height: 150px; margin-top: 8px; }
+
+        .signal-badge { display: inline-block; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+        .signal-bullish { background: rgba(76,175,80,0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+        .signal-bearish { background: rgba(255,107,107,0.2); color: #FF6B6B; border: 1px solid #FF6B6B; }
+        .signal-neutral { background: rgba(255,165,0,0.2); color: #FFA500; border: 1px solid #FFA500; }
+
+        .table-compact { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .table-compact th { background: rgba(0,191,255,0.1); padding: 6px; text-align: left; color: var(--accent); font-weight: 600; border-bottom: 1px solid var(--border); }
+        .table-compact td { padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary); }
+        .table-compact tr:hover td { background: rgba(0,191,255,0.05); }
+
+        .pcr-compact th, .pcr-compact td { padding: 4px 6px; font-size: 10px; white-space: nowrap; }
+        .pcr-compact th { font-weight:700; color: var(--text-secondary); background: transparent; }
+        .pcr-compact td { color: var(--text-secondary); text-align: center; }
+        .pcr-compact td:first-child { text-align: left; color: var(--text-primary); font-weight:600; }
+
+        .pcr-low { color: #FF6B6B; background: rgba(255,107,107,0.04); font-weight:700; border-radius:4px; padding:2px 6px; }
+        .pcr-neutral { color: #FFA500; background: rgba(255,165,0,0.04); font-weight:600; border-radius:4px; padding:2px 6px; }
+        .pcr-high { color: #4CAF50; background: rgba(76,175,80,0.04); font-weight:700; border-radius:4px; padding:2px 6px; }
+
+        .loading { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .hidden { display: none !important; }
+
+        #guide-markdown { color: var(--text-primary); line-height: 1.6; font-size: 14px; display: block !important; width: 100%; visibility: visible; opacity: 1; }
+        #guide-markdown h1 { font-size: 2.2em; margin: 24px 0 16px 0; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 12px; }
+        #guide-markdown h2 { font-size: 1.8em; margin: 20px 0 12px 0; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 12px; }
+        #guide-markdown h3 { font-size: 1.4em; margin: 16px 0 10px 0; color: #4CAF50; }
+        #guide-markdown h4 { font-size: 1.2em; margin: 12px 0 8px 0; color: #FFC107; }
+        #guide-markdown p { margin: 12px 0; color: var(--text-secondary); }
+        #guide-markdown ul, #guide-markdown ol { margin: 12px 0; padding-left: 30px; }
+        #guide-markdown li { margin: 6px 0; color: var(--text-secondary); }
+        #guide-markdown code { background: rgba(0,191,255,0.15); color: #00bfff; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; }
+        #guide-markdown pre { background: rgba(0,0,0,0.3); color: #4CAF50; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 12px 0; border-left: 4px solid #4CAF50; font-family: 'Courier New', monospace; }
+        #guide-markdown pre code { background: none; color: #4CAF50; padding: 0; border-radius: 0; }
+        #guide-markdown table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        #guide-markdown table th { background: rgba(0,191,255,0.2); color: var(--accent); padding: 12px; text-align: left; border-bottom: 2px solid var(--accent); font-weight: 600; }
+        #guide-markdown table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        #guide-markdown table tr:hover td { background: rgba(0,191,255,0.08); }
+        #guide-markdown blockquote { border-left: 4px solid var(--accent); padding-left: 16px; margin: 16px 0; color: var(--text-secondary); font-style: italic; }
+        #guide-markdown a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+        #guide-markdown strong { color: var(--text-primary); font-weight: 600; }
+        #guide-markdown em { color: #FFC107; font-style: italic; }
+
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- ── Unified Mega-Header ── -->
+    <div class="mega-header">
+        <!-- Row 1: Brand + Controls -->
+        <div class="mega-header-top">
+            <h1>📊 Nifty Dashboard</h1>
+            <div class="header-controls">
+                <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark</button>
+                <input type="date" id="expiryInput" title="Select expiry date">
+                <button onclick="changeExpiry()">Change Expiry</button>
+                <button onclick="fetchNow()" id="fetch-now-btn">Fetch Now</button>
+            </div>
+        </div>
+
+        <!-- Strike details modal (shared across pages) -->
+        <div id="strike-modal" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:9999;">
+            <div style="background:var(--card-bg); padding:16px; border-radius:8px; width:520px; max-width:95%;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div id="strike-modal-title" style="font-weight:800; color:var(--accent);">Strike</div>
+                    <button onclick="closeStrikeModal()" style="background:transparent; border:none; color:var(--text-secondary); font-size:18px; cursor:pointer;">✕</button>
+                </div>
+                <div style="margin-top:8px;">
+                    <canvas id="strike-mini-chart" width="480" height="120" style="width:100%; height:120px; background:transparent;"></canvas>
+                </div>
+                <div style="margin-top:12px; text-align:right;"><button onclick="closeStrikeModal()" style="padding:8px 12px;">Close</button></div>
+            </div>
+        </div>
+
+        <!-- Row 2: Navigation tab strip -->
+        <div class="mega-header-tabs">
+            <a href="/stocks" class="tab-button {% if active_page == 'stocks' %}active{% endif %}">📈 Stocks</a>
+            <a href="/options" class="tab-button {% if active_page == 'options' %}active{% endif %}">📊 Analysis</a>
+            <a href="/greeks" class="tab-button {% if active_page == 'greeks' %}active{% endif %}">ξ Greeks</a>
+            <a href="/trends" class="tab-button {% if active_page == 'trends' %}active{% endif %}">📉 Trends</a>
+            <a href="/guide" class="tab-button {% if active_page == 'guide' %}active{% endif %}">📖 Guide</a>
+            <a href="/strategy" class="tab-button {% if active_page == 'strategy' %}active{% endif %}">⚔️ Strategy</a>
+            <a href="/" class="tab-button" style="border-left: 1px solid var(--border); margin-left: 8px; opacity: 0.7;" title="Monolithic dashboard (original)">🏠 Full View</a>
+        </div>
+
+        <!-- Row 3: Global Bias + Scalper Playbook -->
+        <div class="mega-header-bias">
+            <div class="mega-header-bias-left">
+                <span class="mega-header-bias-label">Global Bias</span>
+                <span id="global-bias-label" class="mega-header-bias-value">-</span>
+                <span id="global-bias-sub" class="mega-header-bias-sub">-</span>
+            </div>
+            <div class="mega-header-playbook">
+                <div class="mega-header-playbook-label">Scalper Playbook</div>
+                <div id="scalper-playbook-text" class="mega-header-playbook-text">-</div>
+            </div>
+            <div id="global-bias-disagreements" style="margin-left:auto; align-self:center; font-size:12px; color:var(--text-secondary); white-space:nowrap; padding-left:12px;">-</div>
+        </div>
+    </div><!-- end .mega-header -->
+
+    <!-- ── Page Content ── -->
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/marked.min.js') }}"></script>
+
+    <script>
+    // ── Shared utilities ──
+
+    function toggleTheme() {
+        document.documentElement.style.filter = document.documentElement.style.filter === 'invert(1)' ? '' : 'invert(1)';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function showStrikeDetails(strike, type) {
+        try {
+            const modal = document.getElementById('strike-modal');
+            const title = document.getElementById('strike-modal-title');
+            const canvas = document.getElementById('strike-mini-chart');
+            if (!modal || !canvas) return;
+            title.textContent = `${strike} ${type} — recent OI / Price`;
+            const trendsCache_ = window.trendsCache || [];
+            const seriesOIs = trendsCache_.slice(-20).map(t => (t.call_oi || 0));
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const w = canvas.width, h = canvas.height;
+            const maxv = Math.max(...seriesOIs, 1);
+            const minv = Math.min(...seriesOIs, 0);
+            const norm = v => (maxv === minv) ? h / 2 : h - ((v - minv) / (maxv - minv)) * h;
+            ctx.beginPath(); ctx.strokeStyle = '#00bfff'; ctx.lineWidth = 2;
+            seriesOIs.forEach((v, i) => { const x = (i / (seriesOIs.length - 1 || 1)) * w; const y = norm(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+            ctx.stroke();
+            modal.style.display = 'flex';
+        } catch (e) { console.warn('showStrikeDetails error', e); }
+    }
+
+    function closeStrikeModal() {
+        const m = document.getElementById('strike-modal');
+        if (m) m.style.display = 'none';
+    }
+
+    // changeExpiry delegates to window._socket if available
+    function changeExpiry() {
+        const dateValue = document.getElementById('expiryInput').value;
+        if (dateValue && window._socket) {
+            const date = new Date(dateValue);
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const formatted = `${String(date.getDate()).padStart(2,'0')}-${months[date.getMonth()]}-${date.getFullYear()}`;
+            window._socket.emit('change_expiry', { expiry: formatted });
+        }
+    }
+
+    // Default fetchNow — pages override in their own script blocks
+    function fetchNow() { console.log('[BASE] fetchNow() not overridden by page'); }
+
+    async function fetchAndRenderPcrByExpiry() {
+        try {
+            const res = await fetch('/api/pcr-by-expiry');
+            if (!res.ok) throw new Error('Network response not ok');
+            const arr = await res.json();
+            const tbody = document.getElementById('pcr-expiries-body');
+            if (!tbody) return;
+            if (!Array.isArray(arr)) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No data</td></tr>`;
+                return;
+            }
+            const fmt = v => (v === null || v === undefined) ? '-' : (isFinite(Number(v)) ? Number(v).toFixed(2) : String(v));
+            const classFor = v => {
+                const n = Number(v);
+                if (!isFinite(n)) return '';
+                if (n <= 0.7) return 'pcr-low';
+                if (n > 1.2) return 'pcr-high';
+                return 'pcr-neutral';
+            };
+            const rows = arr.map(item => {
+                const rawOverall = item.overall_pcr;
+                const rawWindow = item.pcr_plusminus_5;
+                const overallFmt = fmt(rawOverall);
+                const windowFmt = fmt(rawWindow);
+                const overallClass = classFor(rawOverall);
+                const windowClass = classFor(rawWindow);
+                const overallCell = overallFmt === '-' ? `<td style="text-align:center">-</td>` : `<td style="text-align:center"><span class="${overallClass}">${overallFmt}</span></td>`;
+                const windowCell = windowFmt === '-' ? `<td style="text-align:center">-</td>` : `<td style="text-align:center"><span class="${windowClass}">${windowFmt}</span></td>`;
+                return `<tr><td style="text-align:left">${item.expiry}</td>${overallCell}${windowCell}</tr>`;
+            }).join('');
+            tbody.innerHTML = rows || `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No expiries</td></tr>`;
+        } catch (e) {
+            console.error('fetchAndRenderPcrByExpiry error', e);
+            const tbody = document.getElementById('pcr-expiries-body');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">Error loading data</td></tr>`;
+        }
+    }
+
+    async function fetchAndRenderOptionsChain() {
+        try {
+            const res = await fetch('/api/analyze-options');
+            if (!res.ok) throw new Error('Network response not ok');
+            const data = await res.json();
+            const tbody = document.getElementById('options-chain-body');
+            if (!tbody) return;
+
+            const chainRows = data.rows || [];
+            const spot = Number(data.spot || data.underlying_value || data.underlyingValue || 0);
+
+            if (!Array.isArray(chainRows) || chainRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No options data</td></tr>`;
+                return;
+            }
+
+            const byStrike = {};
+            const strikes = [];
+            chainRows.forEach(r => {
+                const s = Number(r.strike || r.strikePrice || 0);
+                if (!isFinite(s)) return;
+                strikes.push(s);
+                byStrike[s] = r;
+            });
+            strikes.sort((a, b) => a - b);
+
+            let nearest = strikes.reduce((p, c) => Math.abs(c - spot) < Math.abs(p - spot) ? c : p, strikes[0]);
+            let idx = strikes.indexOf(nearest);
+            if (idx === -1) idx = Math.floor(strikes.length / 2);
+
+            const low = Math.max(0, idx - 12);
+            const high = Math.min(strikes.length - 1, idx + 12);
+            const displayStrikes = strikes.slice(low, high + 1);
+
+            const normalize = s => (s || '').toString().trim();
+            const decideClassFromLabel = (label, numericPct) => {
+                const L = String(label || '').toUpperCase();
+                if (!L || L === 'NULL' || L === 'NONE') return (numericPct > 0) ? 'buildup-positive' : (numericPct < 0 ? 'buildup-negative' : 'buildup-neutral');
+                if (L.includes('NEUTRAL')) return 'buildup-neutral';
+                if (L.includes('CALL') && (L.includes('WRIT') || L.includes('SHORT'))) return 'buildup-negative';
+                if (L.includes('CALL') && (L.includes('BUY') || L.includes('LONG'))) return 'buildup-positive';
+                if (L.includes('PUT') && (L.includes('BUY') || L.includes('BUYING'))) return 'buildup-negative';
+                if (L.includes('PUT') && (L.includes('WRIT') || L.includes('SHORT'))) return 'buildup-positive';
+                if (L.includes('BUYING') || L.includes('BUY')) return 'buildup-positive';
+                if (L.includes('SELLING') || L.includes('WRITING') || L.includes('SHORT')) return 'buildup-negative';
+                return (numericPct > 0) ? 'buildup-positive' : (numericPct < 0 ? 'buildup-negative' : 'buildup-neutral');
+            };
+
+            const parsePct = v => { const s = String(v || '').replace('%', '').trim(); const n = Number(s); return isFinite(n) ? n : 0; };
+
+            const html = displayStrikes.map(s => {
+                const r = byStrike[s] || {};
+                const ce_buildup_type = r.ce_buildup_type || null;
+                const pe_buildup_type = r.pe_buildup_type || null;
+                let ce_pct = r.ce_pchangeinOpenInterest !== undefined ? parsePct(r.ce_pchangeinOpenInterest) : 0;
+                let pe_pct = r.pe_pchangeinOpenInterest !== undefined ? parsePct(r.pe_pchangeinOpenInterest) : 0;
+                const ceLabel = ce_buildup_type ? normalize(ce_buildup_type) : (ce_pct ? `${ce_pct}%` : 'Neutral');
+                const peLabel = pe_buildup_type ? normalize(pe_buildup_type) : (pe_pct ? `${pe_pct}%` : 'Neutral');
+                const ceClass = decideClassFromLabel(ce_buildup_type || ceLabel, ce_pct);
+                const peClass = decideClassFromLabel(pe_buildup_type || peLabel, pe_pct);
+                const isAtm = Math.abs(s - spot) <= (strikes[1] - strikes[0] || 0);
+                const strikeHtml = isAtm ? `<span class="recommended">${s}</span>` : `${s}`;
+                return `<tr><td style="text-align:left">${strikeHtml}</td><td style="text-align:center"><span class="${ceClass}">${ceLabel}</span></td><td style="text-align:center"><span class="${peClass}">${peLabel}</span></td></tr>`;
+            }).join('');
+
+            tbody.innerHTML = html || `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No strikes in range</td></tr>`;
+        } catch (e) {
+            console.error('fetchAndRenderOptionsChain error', e);
+            const tbody = document.getElementById('options-chain-body');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">Error loading data</td></tr>`;
+        }
+    }
+
+    // Set expiry input default to next Thursday on page load
+    window.addEventListener('DOMContentLoaded', function () {
+        try {
+            const inp = document.getElementById('expiryInput');
+            if (inp && !inp.value) {
+                const now = new Date();
+                const target = new Date(now.getTime());
+                const day = target.getDay();
+                const daysUntilThu = (4 - day + 7) % 7 || 7;
+                target.setDate(target.getDate() + daysUntilThu);
+                const yyyy = target.getFullYear();
+                const mm = String(target.getMonth() + 1).padStart(2, '0');
+                const dd = String(target.getDate()).padStart(2, '0');
+                inp.value = `${yyyy}-${mm}-${dd}`;
+            }
+        } catch (e) { console.warn('expiry defaulting failed', e); }
+
+        // Fetch PCR by expiry and options chain on pages that have those containers
+        try { fetchAndRenderPcrByExpiry(); } catch (e) {}
+        try { fetchAndRenderOptionsChain(); } catch (e) {}
+    });
+    </script>
+
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

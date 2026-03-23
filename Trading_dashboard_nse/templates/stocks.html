@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Stocks — Nifty Dashboard{% endblock %}
+
+{% block content %}
+<div id="stocks-loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading stock data...</p>
+</div>
+<div id="stocks-content" class="hidden">
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-header">📈 Market Trend</div>
+            <div class="card-value" id="stocks-trend">-</div>
+            <div class="card-subtitle" id="stocks-trend-detail">-</div>
+            <div class="card-row">
+                <div class="metric-item">
+                    <div class="metric-label">Advancers</div>
+                    <div class="metric-value" id="stocks-advancers">-</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Decliners</div>
+                    <div class="metric-value" id="stocks-decliners">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">🐂 Bull Power</div>
+            <div class="card-value" id="stocks-bull">-</div>
+            <div class="card-subtitle">Weighted Power</div>
+            <div class="card-row">
+                <div class="metric-item">
+                    <div class="metric-label">Bear Power</div>
+                    <div class="metric-value" id="stocks-bear">-</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Net Power</div>
+                    <div class="metric-value" id="stocks-net">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">💡 Market Insights</div>
+            <div class="metric-item">
+                <div class="metric-label">Sentiment</div>
+                <div class="metric-value" id="stocks-sentiment">-</div>
+            </div>
+            <div class="metric-item" style="margin-top: 6px;">
+                <div class="metric-label">Breadth Ratio</div>
+                <div class="metric-value" id="stocks-breadth">-</div>
+            </div>
+            <div class="progress-bar" style="margin-top: 8px;">
+                <div class="progress-fill" id="stocks-breadth-bar" style="width: 50%;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">📊 Volatility &amp; Volume</div>
+            <div class="card-row">
+                <div class="metric-item">
+                    <div class="metric-label">Volatility</div>
+                    <div class="metric-value" id="stocks-volatility">-</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Gainers</div>
+                    <div class="metric-value" id="stocks-gainers">-</div>
+                </div>
+            </div>
+            <div class="card-row" style="margin-top: 8px;">
+                <div class="metric-item">
+                    <div class="metric-label">Losers</div>
+                    <div class="metric-value" id="stocks-losers">-</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">Total Vol</div>
+                    <div class="metric-value" id="stocks-total-vol" style="font-size: 1.1em;">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+        <div class="card">
+            <div class="card-header" style="background: linear-gradient(135deg, rgba(76,175,80,0.3) 0%, rgba(76,175,80,0.1) 100%); border-left: 4px solid #4CAF50;">📈 Gaining Stocks</div>
+            <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                <table class="table-compact">
+                    <thead style="position: sticky; top: 0;">
+                        <tr style="background: rgba(76,175,80,0.2);">
+                            <th onclick="sortStocksGainersTable('symbol')" style="cursor:pointer; color:#4CAF50;">Symbol ↕</th>
+                            <th class="text-right" onclick="sortStocksGainersTable('lastPrice')" style="cursor:pointer; color:#4CAF50;">Rate ↕</th>
+                            <th class="text-right" onclick="sortStocksGainersTable('change')" style="cursor:pointer; color:#4CAF50;">Change ↕</th>
+                            <th class="text-right" onclick="sortStocksGainersTable('pChange')" style="cursor:pointer; color:#4CAF50;">% ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stocks-gainers-table">
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header" style="background: linear-gradient(135deg, rgba(255,107,107,0.3) 0%, rgba(255,107,107,0.1) 100%); border-left: 4px solid #FF6B6B;">📉 Losing Stocks</div>
+            <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                <table class="table-compact">
+                    <thead style="position: sticky; top: 0;">
+                        <tr style="background: rgba(255,107,107,0.2);">
+                            <th onclick="sortStocksLosersTable('symbol')" style="cursor:pointer; color:#FF6B6B;">Symbol ↕</th>
+                            <th class="text-right" onclick="sortStocksLosersTable('lastPrice')" style="cursor:pointer; color:#FF6B6B;">Rate ↕</th>
+                            <th class="text-right" onclick="sortStocksLosersTable('change')" style="cursor:pointer; color:#FF6B6B;">Change ↕</th>
+                            <th class="text-right" onclick="sortStocksLosersTable('pChange')" style="cursor:pointer; color:#FF6B6B;">% ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stocks-losers-table">
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-secondary);">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let stocksData = null;
+    let stocksGainersSort = { column: null, direction: 'asc' };
+    let stocksLosersSort = { column: null, direction: 'asc' };
+
+    function loadStocksData() {
+        document.getElementById('stocks-loading').style.display = 'block';
+        document.getElementById('stocks-content').classList.add('hidden');
+        fetch('/api/analyze-stocks')
+            .then(res => res.json())
+            .then(data => { stocksData = data; displayStocksData(data); })
+            .catch(err => {
+                console.error('Error:', err);
+                document.getElementById('stocks-loading').innerHTML = '<p style="color: red;">Failed to load data</p>';
+            });
+    }
+
+    function displayStocksData(data) {
+        const trend = data.trend;
+        document.getElementById('stocks-trend').textContent = trend.trend;
+        document.getElementById('stocks-trend-detail').textContent = `Avg Change: ${trend.avg_change}%`;
+        document.getElementById('stocks-advancers').textContent = trend.advancers;
+        document.getElementById('stocks-decliners').textContent = trend.decliners;
+
+        const power = data.power;
+        document.getElementById('stocks-bull').textContent = power.bull_power;
+        document.getElementById('stocks-bear').textContent = power.bear_power;
+        document.getElementById('stocks-net').textContent = power.net_power;
+
+        const insights = data.insights;
+        document.getElementById('stocks-sentiment').textContent = insights.market_sentiment;
+        document.getElementById('stocks-breadth').textContent = insights.breadth_ratio + '%';
+        document.getElementById('stocks-breadth-bar').style.width = insights.breadth_ratio + '%';
+        document.getElementById('stocks-volatility').textContent = insights.avg_volatility.toFixed(2) + '%';
+        document.getElementById('stocks-gainers').textContent = insights.strong_gainers;
+        document.getElementById('stocks-losers').textContent = insights.strong_losers;
+        document.getElementById('stocks-total-vol').textContent = (insights.total_volume / 1000000).toFixed(1) + 'M';
+
+        const gainersBody = document.getElementById('stocks-gainers-table');
+        gainersBody.innerHTML = data.gainers.map(s => `
+            <tr>
+                <td><strong>${s.symbol}</strong></td>
+                <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                <td class="text-right" style="color:#4CAF50;">+${s.change.toFixed(2)}</td>
+                <td class="text-right" style="color:#4CAF50;">+${s.pChange.toFixed(2)}%</td>
+            </tr>`).join('');
+
+        const losersBody = document.getElementById('stocks-losers-table');
+        losersBody.innerHTML = data.losers.map(s => `
+            <tr>
+                <td><strong>${s.symbol}</strong></td>
+                <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                <td class="text-right" style="color:#FF6B6B;">${s.change.toFixed(2)}</td>
+                <td class="text-right" style="color:#FF6B6B;">${s.pChange.toFixed(2)}%</td>
+            </tr>`).join('');
+
+        document.getElementById('stocks-loading').style.display = 'none';
+        document.getElementById('stocks-content').classList.remove('hidden');
+    }
+
+    function sortStocksGainersTable(column) {
+        if (!stocksData) return;
+        let gainers = [...stocksData.gainers];
+        if (stocksGainersSort.column === column) {
+            stocksGainersSort.direction = stocksGainersSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            stocksGainersSort.column = column;
+            stocksGainersSort.direction = 'asc';
+        }
+        gainers.sort((a, b) => {
+            const comparison = a[column] > b[column] ? 1 : -1;
+            return stocksGainersSort.direction === 'asc' ? comparison : -comparison;
+        });
+        document.getElementById('stocks-gainers-table').innerHTML = gainers.map(s => `
+            <tr>
+                <td><strong>${s.symbol}</strong></td>
+                <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                <td class="text-right" style="color:#4CAF50;">+${s.change.toFixed(2)}</td>
+                <td class="text-right" style="color:#4CAF50;">+${s.pChange.toFixed(2)}%</td>
+            </tr>`).join('');
+    }
+
+    function sortStocksLosersTable(column) {
+        if (!stocksData) return;
+        let losers = [...stocksData.losers];
+        if (stocksLosersSort.column === column) {
+            stocksLosersSort.direction = stocksLosersSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            stocksLosersSort.column = column;
+            stocksLosersSort.direction = 'asc';
+        }
+        losers.sort((a, b) => {
+            const comparison = a[column] > b[column] ? 1 : -1;
+            return stocksLosersSort.direction === 'asc' ? comparison : -comparison;
+        });
+        document.getElementById('stocks-losers-table').innerHTML = losers.map(s => `
+            <tr>
+                <td><strong>${s.symbol}</strong></td>
+                <td class="text-right">₹${s.lastPrice.toFixed(2)}</td>
+                <td class="text-right" style="color:#FF6B6B;">${s.change.toFixed(2)}</td>
+                <td class="text-right" style="color:#FF6B6B;">${s.pChange.toFixed(2)}%</td>
+            </tr>`).join('');
+    }
+
+    async function fetchNow() {
+        try {
+            const res = await fetch('/api/analyze-stocks');
+            if (!res.ok) throw new Error('Stocks API returned ' + res.status);
+            const data = await res.json();
+            displayStocksData(data);
+        } catch (e) {
+            console.error('fetchNow failed', e);
+            alert('Fetch failed: ' + e.message);
+        }
+    }
+
+    // Auto-load on page ready
+    document.addEventListener('DOMContentLoaded', loadStocksData);
+</script>
+{% endblock %}
