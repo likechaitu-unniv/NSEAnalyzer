@@ -7,7 +7,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from Analyzer import NiftyTrendAnalyzer, fetch_nifty_option_chain
 from trend_storage import TrendStorage
-from utils import fetch_india_vix, fetch_available_expiries
+from utils import fetch_india_vix, fetch_available_expiries, fetch_nifty_futures
 from utils import fetch_nifty_option_chain
 import threading
 import time
@@ -18,6 +18,13 @@ print("[DEBUG] apps.py module loaded")
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 # Global expiry variable for options (will attempt to auto-select from NSE)
 default_expiry = '23-Feb-2026'
@@ -434,19 +441,14 @@ def transmit_option_analysis():
         except Exception as e:
             print(f"Error in option analysis: {e}")
             socketio.emit('error', {'message': str(e)})
-        time.sleep(15)
+        time.sleep(30)
 
 
 # Routes
 @app.route('/')
 def index():
     """Serve the main HTML page"""
-    from flask import make_response
-    resp = make_response(render_template('dashboard.html'))
-    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    resp.headers['Pragma'] = 'no-cache'
-    resp.headers['Expires'] = '0'
-    return resp
+    return render_template('dashboard.html')
 
 
 @app.route('/api/analyze-stocks')
@@ -641,6 +643,15 @@ def api_write_trend():
     except Exception as e:
         print(f"[ERROR] Error writing trend: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/nifty-futures')
+def api_nifty_futures():
+    """Return the nearest Nifty Index Futures contract price."""
+    result = fetch_nifty_futures()
+    if result is None:
+        return jsonify({'error': 'Could not fetch Nifty Futures data'}), 503
+    return jsonify(result)
+
 
 @app.route('/api/get-guide')
 def api_get_guide():

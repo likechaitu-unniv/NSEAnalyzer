@@ -1914,10 +1914,17 @@
                 </div>
 
                 <!-- Market Context Strip -->
-                <div id="strat-context-row" style="grid-column: 1 / -1; display:grid; grid-template-columns:repeat(6,1fr); gap:8px;">
+                <div id="strat-context-row" style="grid-column: 1 / -1; display:grid; grid-template-columns:repeat(7,1fr); gap:8px;">
                     <div class="card" style="padding:10px; text-align:center;">
                         <div class="metric-label">Spot</div>
                         <div class="metric-value" id="strat-c-spot" style="font-size:1.1em;">-</div>
+                    </div>
+                    <div class="card" style="padding:10px; text-align:center; border-left: 2px solid #00bfff;">
+                        <div class="metric-label">Nifty Futures</div>
+                        <div class="metric-value" id="strat-c-fut" style="font-size:1.1em; color:#00bfff;">-</div>
+                        <div style="font-size:10px;" id="strat-c-fut-chg">-</div>
+                        <div style="font-size:9px; color:var(--text-secondary);" id="strat-c-fut-basis">-</div>
+                        <div style="font-size:9px; color:var(--text-secondary);" id="strat-c-fut-exp">-</div>
                     </div>
                     <div class="card" style="padding:10px; text-align:center;">
                         <div class="metric-label">Max Pain</div>
@@ -2201,6 +2208,36 @@
         let stocksData = null;
         let greeksData = null;
         let trendsRefreshInterval = null; // For auto-refresh
+        let futuresRefreshInterval = null; // For Nifty Futures real-time polling
+
+        function refreshNiftyFutures() {
+            fetch('/api/nifty-futures')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.error) return;
+                    const el      = document.getElementById('strat-c-fut');
+                    const chgEl   = document.getElementById('strat-c-fut-chg');
+                    const basisEl = document.getElementById('strat-c-fut-basis');
+                    const expEl   = document.getElementById('strat-c-fut-exp');
+                    if (el) {
+                        el.textContent = d.last_price != null
+                            ? Number(d.last_price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})
+                            : '-';
+                    }
+                    if (chgEl) {
+                        const pct = d.pct_change;
+                        chgEl.textContent = pct != null ? (pct >= 0 ? '+' : '') + Number(pct).toFixed(2) + '%' : '-';
+                        chgEl.style.color = pct > 0 ? '#4CAF50' : pct < 0 ? '#FF6B6B' : '#FFA500';
+                    }
+                    if (basisEl && d.last_price != null && d.spot != null) {
+                        const basis = Number(d.last_price) - Number(d.spot);
+                        basisEl.textContent = 'Basis: ' + (basis >= 0 ? '+' : '') + basis.toFixed(1);
+                        basisEl.style.color = basis >= 0 ? '#4CAF50' : '#FF6B6B';
+                    }
+                    if (expEl) expEl.textContent = d.expiry ? 'Exp: ' + d.expiry : '';
+                })
+                .catch(e => console.warn('[FUTURES] fetch error:', e));
+        }
 
         function switchTab(tabName) {
             console.log('[TAB] switchTab called with:', tabName);
@@ -2209,6 +2246,11 @@
             if (trendsRefreshInterval) {
                 clearInterval(trendsRefreshInterval);
                 trendsRefreshInterval = null;
+            }
+            // Clear futures polling when leaving Trends tab
+            if (futuresRefreshInterval) {
+                clearInterval(futuresRefreshInterval);
+                futuresRefreshInterval = null;
             }
 
             // Hide all tabs
@@ -2280,6 +2322,9 @@
             } else if (tabName === 'trends') {
                 loadTrendsData();
                 trendsRefreshInterval = setInterval(loadTrendsData, 15000);
+                // Start Nifty Futures real-time polling (every 15s)
+                refreshNiftyFutures();
+                futuresRefreshInterval = setInterval(refreshNiftyFutures, 15000);
                 // Also refresh strategy cards when Trends tab is opened
                 try { buildStrategiesTab(); } catch(e) { console.warn('Strategy refresh on trends tab', e); }
             } else if (tabName === 'greeks') {

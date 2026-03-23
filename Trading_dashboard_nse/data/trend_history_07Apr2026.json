@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-03-22T23:34:59.535866",
+  "last_updated": "2026-03-22T23:35:45.848411",
+  "expiry": "07-Apr-2026",
+  "trends": [
+    {
+      "timestamp": "2026-03-22T23:35:14.781188",
+      "nifty_value": 23114.5,
+      "pcr_oi": 1.03,
+      "pcr_volume": 0.81,
+      "sentiment": "bullish",
+      "iv_rank": null,
+      "call_oi": 38038,
+      "put_oi": 43696,
+      "market_trend": "Strong Bullish",
+      "advancers": 36,
+      "decliners": 14,
+      "avg_change": 0.85,
+      "primary_signal": "BULLISH",
+      "confidence": 75.0,
+      "action": "BUY ON DIPS",
+      "oi_buildup_signal": "NEUTRAL",
+      "call_writing": 17119,
+      "put_writing": 17590,
+      "recorded_at": "2026-03-22T23:35:14.781188"
+    },
+    {
+      "timestamp": "2026-03-22T23:35:45.848411",
+      "nifty_value": 23114.5,
+      "pcr_oi": 1.03,
+      "pcr_volume": 0.81,
+      "sentiment": "bullish",
+      "iv_rank": null,
+      "call_oi": 38038,
+      "put_oi": 43696,
+      "market_trend": "Strong Bullish",
+      "advancers": 36,
+      "decliners": 14,
+      "avg_change": 0.85,
+      "primary_signal": "BULLISH",
+      "confidence": 75.0,
+      "action": "BUY ON DIPS",
+      "oi_buildup_signal": "NEUTRAL",
+      "call_writing": 17119,
+      "put_writing": 17590,
+      "recorded_at": "2026-03-22T23:35:45.848411"
+    }
+  ]
+}

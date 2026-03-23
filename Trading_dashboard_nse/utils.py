@@ -140,6 +140,55 @@ def fetch_available_expiries(symbol="NIFTY"):
         return []
 
 
+def fetch_nifty_futures():
+    """Fetch the nearest Nifty Index Futures contract price from NSE.
+    Uses liveEquity-derivatives?index=nse50_fut which returns all three contracts.
+    Returns dict with last_price, change, pct_change, expiry, open, high, low,
+    spot, oi, volume — or None on failure.
+    """
+    url = "https://www.nseindia.com/api/liveEquity-derivatives?index=nse50_fut"
+    try:
+        session.get("https://www.nseindia.com", headers=NSE_HEADERS, timeout=6)
+    except Exception:
+        pass
+    try:
+        r = session.get(url, headers=NSE_HEADERS, timeout=8)
+        if r.status_code != 200:
+            print(f"[WARN] fetch_nifty_futures: status {r.status_code}")
+            return None
+        data = r.json()
+        contracts = [
+            item for item in data.get('data', [])
+            if item.get('instrumentType') == 'FUTIDX'
+        ]
+        if not contracts:
+            print("[WARN] fetch_nifty_futures: no FUTIDX entries found")
+            return None
+        # Pick nearest expiry
+        from datetime import datetime as _dt
+        def _parse_exp(item):
+            try:
+                return _dt.strptime(item.get('expiryDate', ''), '%d-%b-%Y')
+            except Exception:
+                return _dt.max
+        nearest = sorted(contracts, key=_parse_exp)[0]
+        return {
+            'last_price':  nearest.get('lastPrice'),
+            'change':      nearest.get('change'),
+            'pct_change':  nearest.get('pChange'),
+            'expiry':      nearest.get('expiryDate'),
+            'open':        nearest.get('openPrice'),
+            'high':        nearest.get('highPrice'),
+            'low':         nearest.get('lowPrice'),
+            'spot':        nearest.get('underlyingValue'),
+            'oi':          nearest.get('openInterest'),
+            'volume':      nearest.get('volume'),
+        }
+    except Exception as e:
+        print(f"[WARN] fetch_nifty_futures failed: {e}")
+        return None
+
+
 def derive_pcr(chain):
     print("[DEBUG] derive_pcr() called")
     print("Started pcr calculation")
