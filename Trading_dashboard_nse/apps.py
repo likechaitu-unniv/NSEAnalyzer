@@ -9,10 +9,12 @@ from Analyzer import NiftyTrendAnalyzer, fetch_nifty_option_chain
 from trend_storage import TrendStorage
 from utils import fetch_india_vix, fetch_available_expiries, fetch_nifty_futures
 from utils import fetch_nifty_option_chain
+from signal_pipeline import SignalPipeline
 import os
 import threading
 import time
 import requests
+import json
 from datetime import datetime
 
 print("[DEBUG] apps.py module loaded")
@@ -445,6 +447,37 @@ def transmit_option_analysis():
         time.sleep(30)
 
 
+def signal_pipeline_runner(interval: int = 30, out_path: str = 'data/signal_latest.json'):
+    """Run SignalPipeline.fetch_and_analyze periodically and emit results.
+
+    This uses the SignalPipeline module to compute a lightweight summary
+    and ensures the `analysis_data` socket event and JSON file are kept
+    up-to-date for the frontend.
+    """
+    sp = SignalPipeline()
+    os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
+    while True:
+        try:
+            res = sp.fetch_and_analyze(expiry)
+            summary = sp.make_signal_summary(res)
+            # write file for clients that may read filesystem
+            try:
+                with open(out_path, 'w') as f:
+                    json.dump({'analysis': res, 'summary': summary}, f, indent=2)
+            except Exception as e:
+                print(f"[WARN] Could not write signal file: {e}")
+
+            # update in-memory cache and emit via socket
+            with _latest_analysis_lock:
+                _latest_analysis_result = res
+            socketio.emit('analysis_data', res)
+            print(f"[INFO] Signal pipeline emitted summary at {summary.get('timestamp')}")
+        except Exception as e:
+            print(f"[ERROR] signal_pipeline_runner failure: {e}")
+            socketio.emit('error', {'message': str(e)})
+        time.sleep(interval)
+
+
 # Routes
 @app.route('/')
 def index():
@@ -481,6 +514,12 @@ def trends_page():
 @app.route('/guide')
 def guide_page():
     return render_template('guide.html', active_page='guide')
+
+
+@app.route('/signal')
+def signal_page():
+    """Page to display the SignalPipeline latest summary"""
+    return render_template('signal.html', active_page='signal')
 
 
 @app.route('/api/analyze-stocks')
@@ -685,6 +724,29 @@ def api_nifty_futures():
     return jsonify(result)
 
 
+@app.route('/api/signal-latest')
+def api_signal_latest():
+    """Return the latest SignalPipeline summary.
+
+    Priority: read `data/signal_latest.json` file (if present), else return
+    the in-memory cached `_latest_analysis_result`.
+    """
+    fp = os.path.join(os.path.dirname(__file__), 'data', 'signal_latest.json')
+    try:
+        if os.path.isfile(fp):
+            with open(fp, 'r') as f:
+                return jsonify(json.load(f))
+    except Exception as e:
+        print(f"[WARN] api_signal_latest read failed: {e}")
+
+    # Fallback to in-memory cache
+    with _latest_analysis_lock:
+        cached = _latest_analysis_result
+    if cached is None:
+        return jsonify({'error': 'No signal data available yet'}), 503
+    return jsonify({'analysis': cached, 'summary': None})
+
+
 @app.route('/api/get-guide')
 def api_get_guide():
     """API endpoint to serve the TRENDS_GUIDE.md file"""
@@ -737,4 +799,6 @@ def handle_change_expiry(data):
 if __name__ == '__main__':
     # Start the options analysis thread
     threading.Thread(target=transmit_option_analysis, daemon=True).start()
+    # Start the SignalPipeline background runner (writes JSON + emits via socket)
+    threading.Thread(target=signal_pipeline_runner, kwargs={'interval': 30, 'out_path': 'data/signal_latest.json'}, daemon=True).start()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

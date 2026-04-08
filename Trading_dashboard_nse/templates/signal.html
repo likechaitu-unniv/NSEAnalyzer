@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Live Greeks Signal — Nifty Dashboard{% endblock %}
+
+{% block content %}
+<div style="padding:12px; max-width:1200px; margin:0 auto;">
+  <h2 style="margin-bottom:8px;">🔔 Live Greeks Signal</h2>
+  <p style="color:var(--text-secondary); margin-top:0; margin-bottom:12px;">Displays the latest summary produced by the SignalPipeline (/api/signal-latest).</p>
+
+  <div id="signal-cards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;">
+    <!-- Summary Card -->
+    <div class="card">
+      <div class="card-header">Summary</div>
+      <div style="padding:10px;">
+        <div><strong>Timestamp:</strong> <span id="sig-timestamp">-</span></div>
+        <div><strong>Spot:</strong> <span id="sig-spot">-</span></div>
+        <div><strong>Signal:</strong> <span id="sig-signal">-</span></div>
+        <div><strong>Confidence:</strong> <span id="sig-confidence">-</span></div>
+        <div><strong>Score:</strong> <span id="sig-score">-</span></div>
+      </div>
+    </div>
+
+    <!-- Portfolio Greeks Card -->
+    <div class="card">
+      <div class="card-header">Portfolio Greeks</div>
+      <div style="padding:10px;">
+        <div><strong>Delta:</strong> <span id="pg-delta">-</span></div>
+        <div><strong>Delta Signal:</strong> <span id="pg-delta-sig">-</span></div>
+        <div><strong>Gamma:</strong> <span id="pg-gamma">-</span></div>
+        <div><strong>Gamma Risk:</strong> <span id="pg-gamma-sig">-</span></div>
+        <div><strong>Theta:</strong> <span id="pg-theta">-</span></div>
+        <div><strong>Vega:</strong> <span id="pg-vega">-</span></div>
+      </div>
+    </div>
+
+    <!-- IV & PCR Card -->
+    <div class="card">
+      <div class="card-header">IV & PCR</div>
+      <div style="padding:10px;">
+        <div><strong>ATM IV:</strong> <span id="iv-atm">-</span></div>
+        <div><strong>Avg CE IV:</strong> <span id="iv-ce">-</span></div>
+        <div><strong>Avg PE IV:</strong> <span id="iv-pe">-</span></div>
+        <div><strong>IV Skew:</strong> <span id="iv-skew">-</span></div>
+        <div style="margin-top:8px;"><strong>PCR (window):</strong> <span id="sig-pcr">-</span></div>
+      </div>
+    </div>
+
+    <!-- Fast Movers Card -->
+    <div class="card">
+      <div class="card-header">Fast Moving Options</div>
+      <div style="padding:10px;" id="fast-movers-list">-</div>
+    </div>
+
+    <!-- Top OI / Buildup Card -->
+    <div class="card">
+      <div class="card-header">OI Buildup Snapshot</div>
+      <div style="padding:10px;">
+        <div><strong>Call OI:</strong> <span id="sig-call-oi">-</span></div>
+        <div><strong>Put OI:</strong> <span id="sig-put-oi">-</span></div>
+        <div><strong>OI Buildup Signal:</strong> <span id="sig-oi-buildup">-</span></div>
+      </div>
+    </div>
+
+    <!-- Raw JSON Card -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-header">Raw JSON (latest)</div>
+      <pre id="raw-json" style="max-height:260px; overflow:auto; background:#0f1720; color:#cfe8ff; padding:10px; border-radius:6px;">-</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadSignalLatest(){
+  try{
+    const r = await fetch('/api/signal-latest');
+    if(!r.ok){ console.warn('signal-latest not available', r.status); return; }
+    const payload = await r.json();
+    const s = payload.summary || (payload.analysis ? {
+      timestamp: payload.analysis.timestamp,
+      spot: payload.analysis.underlying_value,
+      final_signal: payload.analysis.final_signal,
+      confidence: payload.analysis.confidence,
+      score: payload.analysis.score
+    } : null);
+    if(!s) return;
+    document.getElementById('sig-timestamp').textContent = s.timestamp || '-';
+    document.getElementById('sig-spot').textContent = s.spot || '-';
+    document.getElementById('sig-signal').textContent = s.final_signal || s.final_signal || '-';
+    document.getElementById('sig-confidence').textContent = (s.confidence!==undefined)? s.confidence + '%' : '-';
+    document.getElementById('sig-score').textContent = (s.score!==undefined)? s.score : '-';
+
+    const analysis = payload.analysis || {};
+    const pg = analysis.portfolio_greeks || {};
+    document.getElementById('pg-delta').textContent = pg.portfolio_delta!==undefined? pg.portfolio_delta : '-';
+    document.getElementById('pg-delta-sig').textContent = pg.delta_signal||'-';
+    document.getElementById('pg-gamma').textContent = pg.portfolio_gamma!==undefined? pg.portfolio_gamma : '-';
+    document.getElementById('pg-gamma-sig').textContent = pg.gamma_risk||'-';
+    document.getElementById('pg-theta').textContent = pg.portfolio_theta!==undefined? pg.portfolio_theta : '-';
+    document.getElementById('pg-vega').textContent = pg.portfolio_vega!==undefined? pg.portfolio_vega : '-';
+
+    const iv = analysis.iv_analysis || {};
+    document.getElementById('iv-atm').textContent = iv.atm_iv!==undefined? iv.atm_iv+'%' : '-';
+    document.getElementById('iv-ce').textContent = iv.avg_ce_iv!==undefined? iv.avg_ce_iv+'%' : '-';
+    document.getElementById('iv-pe').textContent = iv.avg_pe_iv!==undefined? iv.avg_pe_iv+'%' : '-';
+    document.getElementById('iv-skew').textContent = iv.iv_skew!==undefined? iv.iv_skew+'%' : '-';
+
+    document.getElementById('sig-pcr').textContent = analysis.pcr!==undefined? analysis.pcr : '-';
+    document.getElementById('sig-call-oi').textContent = analysis.total_call_oi!==undefined? analysis.total_call_oi : '-';
+    document.getElementById('sig-put-oi').textContent = analysis.total_put_oi!==undefined? analysis.total_put_oi : '-';
+    document.getElementById('sig-oi-buildup').textContent = (analysis.oi_buildup_analysis||{}).signal || '-';
+
+    // Fast movers list
+    const fm = (analysis.fast_moving_options||{}).top_movers || [];
+    const node = document.getElementById('fast-movers-list');
+    if(fm.length===0) node.textContent = '-'; else{
+      node.innerHTML = fm.slice(0,8).map(m=>`<div style="margin-bottom:6px;"><strong>${m.strike}</strong> ${m.type} — ${m.direction} — Gamma:${m.gamma} Delta:${m.delta} OI:${m.oi}</div>`).join('');
+    }
+
+    document.getElementById('raw-json').textContent = JSON.stringify(payload, null, 2);
+  }catch(e){ console.error('loadSignalLatest error', e); }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadSignalLatest();
+  setInterval(loadSignalLatest, 20000);
+});
+</script>
+
+{% endblock %}
