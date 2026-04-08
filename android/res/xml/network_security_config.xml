@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network security configuration for NSE Analyzer.
+    Allows cleartext (HTTP) traffic to localhost so the in-app WebView
+    can reach the Flask server running on 127.0.0.1:5000.
+    All other traffic uses the default (HTTPS-only) policy.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
