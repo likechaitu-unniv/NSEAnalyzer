@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSE Trading Strategies Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --dark-bg: #1a1f3a;
+            --card-bg: #252d4a;
+            --card-bg-hover: #2e3760;
+            --accent: #00bfff;
+            --success: #4CAF50;
+            --warning: #FFA500;
+            --danger: #FF6B6B;
+            --purple: #a78bfa;
+            --teal: #2dd4bf;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8d4;
+            --border: #3a4563;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ── Top Nav ── */
+        .top-nav {
+            background: #0e1228;
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            height: 52px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            font-size: 1.1em;
+            font-weight: 800;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+        .nav-links {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+            overflow-x: auto;
+        }
+        .nav-link {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .nav-link:hover { color: var(--accent); border-color: var(--border); }
+        .nav-link.active { color: var(--accent); background: rgba(0,191,255,0.1); border-color: rgba(0,191,255,0.3); }
+
+        /* ── Page Header ── */
+        .page-hero {
+            background: linear-gradient(135deg, #0e1228 0%, #1a1f3a 60%, #1c2550 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 36px 24px 28px;
+            text-align: center;
+        }
+        .page-hero h1 {
+            font-size: 2em;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        .page-hero p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            max-width: 640px;
+            margin: 0 auto 20px;
+            line-height: 1.6;
+        }
+        .hero-badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .hero-badge {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        /* ── Layout ── */
+        .container { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+        /* ── Section Title ── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .section-icon {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .section-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .section-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(to right, var(--border), transparent);
+            margin: 32px 0 28px;
+        }
+
+        /* ── Strategy Cards Grid ── */
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 18px;
+            margin-bottom: 10px;
+        }
+
+        .strat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: default;
+        }
+        .strat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            border-color: rgba(0,191,255,0.35);
+        }
+
+        .strat-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .strat-emoji {
+            font-size: 26px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .strat-name {
+            font-size: 1em;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+        .strat-tag {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tag-bullish  { background: rgba(76,175,80,0.15);  color: var(--success);  border: 1px solid rgba(76,175,80,0.4);  }
+        .tag-bearish  { background: rgba(255,107,107,0.15); color: var(--danger);   border: 1px solid rgba(255,107,107,0.4);}
+        .tag-neutral  { background: rgba(0,191,255,0.12);  color: var(--accent);   border: 1px solid rgba(0,191,255,0.35); }
+        .tag-volatile { background: rgba(255,165,0,0.15);  color: var(--warning);  border: 1px solid rgba(255,165,0,0.4);  }
+        .tag-hedge    { background: rgba(167,139,250,0.15); color: var(--purple);   border: 1px solid rgba(167,139,250,0.4);}
+
+        .strat-desc {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        /* ── Info rows inside card ── */
+        .strat-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        .meta-label { color: var(--text-secondary); }
+        .meta-value { font-weight: 600; color: var(--text-primary); }
+        .meta-value.green  { color: var(--success); }
+        .meta-value.red    { color: var(--danger);  }
+        .meta-value.orange { color: var(--warning); }
+        .meta-value.blue   { color: var(--accent);  }
+        .meta-value.purple { color: var(--purple);  }
+
+        /* ── Legs pill list ── */
+        .legs-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .leg-pill {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.04);
+        }
+        .leg-buy  { border-color: rgba(76,175,80,0.5);  color: var(--success); background: rgba(76,175,80,0.08);  }
+        .leg-sell { border-color: rgba(255,107,107,0.5); color: var(--danger);  background: rgba(255,107,107,0.08);}
+
+        /* ── Payoff bar ── */
+        .payoff-bar-wrap { margin-bottom: 14px; }
+        .payoff-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+        .payoff-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+        .payoff-fill { height: 100%; border-radius: 3px; }
+
+        /* ── Risk-Reward badge ── */
+        .rr-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid var(--border);
+        }
+
+        /* ── Comparison Table ── */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        table.comp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .comp-table thead th {
+            background: rgba(0,191,255,0.08);
+            padding: 12px 14px;
+            text-align: left;
+            color: var(--accent);
+            font-weight: 700;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .comp-table tbody td {
+            padding: 11px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+        .comp-table tbody tr:last-child td { border-bottom: none; }
+        .comp-table tbody tr:hover td { background: rgba(0,191,255,0.04); }
+        .comp-table td:first-child { color: var(--text-primary); font-weight: 600; }
+
+        /* ── Tips Panel ── */
+        .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 14px;
+        }
+        .tip-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .tip-card-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .tip-card ul {
+            padding-left: 16px;
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            line-height: 1.75;
+        }
+
+        /* ── Quick Reference Legend ── */
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .legend-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12.5px;
+        }
+        .legend-dot {
+            width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        }
+
+        /* ── Footer ── */
+        .page-footer {
+            text-align: center;
+            padding: 28px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .page-hero h1 { font-size: 1.5em; }
+            .container { padding: 18px 14px; }
+            .strategies-grid { grid-template-columns: 1fr; }
+            .top-nav { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════  TOP NAV  ═══════════════════════════ -->
+<nav class="top-nav">
+    <span class="nav-brand">📊 NSEAnalyzer</span>
+    <div class="nav-links">
+        <a class="nav-link active" href="#bullish">🟢 Bullish</a>
+        <a class="nav-link" href="#bearish">🔴 Bearish</a>
+        <a class="nav-link" href="#neutral">🔵 Neutral</a>
+        <a class="nav-link" href="#volatile">🟠 Volatile</a>
+        <a class="nav-link" href="#risk">🛡️ Risk Mgmt</a>
+        <a class="nav-link" href="#comparison">📋 Comparison</a>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════  HERO  ═══════════════════════════ -->
+<div class="page-hero">
+    <h1>📈 Trading Strategies Dashboard</h1>
+    <p>
+        A comprehensive static reference guide to NSE options &amp; futures trading strategies — 
+        covering bullish, bearish, neutral, and high-volatility market conditions.
+    </p>
+    <div class="hero-badges">
+        <span class="hero-badge" style="color:var(--success); border-color:rgba(76,175,80,0.4); background:rgba(76,175,80,0.1);">🟢 7 Bullish Strategies</span>
+        <span class="hero-badge" style="color:var(--danger); border-color:rgba(255,107,107,0.4); background:rgba(255,107,107,0.1);">🔴 6 Bearish Strategies</span>
+        <span class="hero-badge" style="color:var(--accent); border-color:rgba(0,191,255,0.4); background:rgba(0,191,255,0.1);">🔵 5 Neutral Strategies</span>
+        <span class="hero-badge" style="color:var(--warning); border-color:rgba(255,165,0,0.4); background:rgba(255,165,0,0.1);">🟠 4 Volatile Strategies</span>
+        <span class="hero-badge" style="color:var(--purple); border-color:rgba(167,139,250,0.4); background:rgba(167,139,250,0.1);">🛡️ 4 Risk Strategies</span>
+    </div>
+</div>
+
+<!-- ═══════════════════════════  MAIN CONTENT  ═══════════════════════════ -->
+<div class="container">
+
+    <!-- ─────────────────────────────  BULLISH  ───────────────────────────── -->
+    <div id="bullish">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(76,175,80,0.15);">🟢</div>
+            <div>
+                <div class="section-title">Bullish Strategies</div>
+                <div class="section-subtitle">Use when market sentiment is positive &amp; you expect price to rise</div>
+            </div>
+        </div>
+
+        <div class="strategies-grid">
+
+            <!-- Bull Call Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">📈</span>
+                    <div>
+                        <div class="strat-name">Bull Call Spread</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy a lower-strike call and sell a higher-strike call with the same expiry. Reduces premium cost while capping upside profit. Ideal when you expect moderate upside movement.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Call (lower strike)</span>
+                    <span class="leg-pill leg-sell">SELL Call (higher strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Strike Diff − Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Net Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Lower Strike + Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Moderate bullish move</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Low</span></div>
+                </div>
+            </div>
+
+            <!-- Long Call -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">☎️</span>
+                    <div>
+                        <div class="strat-name">Long Call</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Simply buy a call option to gain unlimited upside exposure. Premium is the only cost. Works best when you anticipate a sharp, swift rally — time decay works against you.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Call (ATM or OTM)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Strike + Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Strong directional move</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Very Low</span></div>
+                </div>
+            </div>
+
+            <!-- Covered Call -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🛡️</span>
+                    <div>
+                        <div class="strat-name">Covered Call</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Hold underlying (or futures) and sell an OTM call to generate income. Caps upside but reduces effective cost basis. Most popular income strategy among retail traders.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">HOLD Underlying / Futures</span>
+                    <span class="leg-pill leg-sell">SELL Call (OTM)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Strike − Cost + Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Cost − Premium Received</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Cost − Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Sideways-to-mild bullish</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Bull Put Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">💰</span>
+                    <div>
+                        <div class="strat-name">Bull Put Spread (Credit Spread)</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell a higher-strike put and buy a lower-strike put. Collect net premium upfront. Profits when the underlying stays above the short put strike at expiry.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL Put (higher strike)</span>
+                    <span class="leg-pill leg-buy">BUY Put (lower strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Net Credit Received</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Strike Diff − Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Short Put − Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Mild bullish / low IV</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Long Futures -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🚀</span>
+                    <div>
+                        <div class="strat-name">Long Futures</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy Nifty / BankNifty futures contract. High leverage, no time decay. Profits and losses are symmetric. Requires strict stop-loss discipline due to margin requirements.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Futures Contract</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Unlimited (use SL)</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Entry Price</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Strong trend + low VIX</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Very Low</span></div>
+                </div>
+            </div>
+
+            <!-- Call Ratio Back Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🔭</span>
+                    <div>
+                        <div class="strat-name">Call Ratio Back Spread</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell 1 lower-strike call, buy 2 (or more) higher-strike calls. Benefits from a very large upward move. Can be set up for a net credit. Carries risk in the middle zone at expiry.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL 1× Call (lower strike)</span>
+                    <span class="leg-pill leg-buy">BUY 2× Call (higher strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited (above breakeven)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">At higher strike at expiry</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Higher Strike + Max Loss</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Big breakout expected</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">High</span></div>
+                </div>
+            </div>
+
+            <!-- Synthetic Long -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">⚡</span>
+                    <div>
+                        <div class="strat-name">Synthetic Long</div>
+                        <span class="strat-tag tag-bullish">Bullish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy ATM call + sell ATM put at same strike. Mimics long futures exposure using options. Smaller upfront margin. Profits and losses are similar to owning the underlying.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY ATM Call</span>
+                    <span class="leg-pill leg-sell">SELL ATM Put</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Large (below breakeven)</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Strike ± Net Debit/Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Strong bullish conviction</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+        </div><!-- /bullish grid -->
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  BEARISH  ───────────────────────────── -->
+    <div id="bearish">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,107,107,0.15);">🔴</div>
+            <div>
+                <div class="section-title">Bearish Strategies</div>
+                <div class="section-subtitle">Use when market sentiment is negative &amp; you expect prices to fall</div>
+            </div>
+        </div>
+
+        <div class="strategies-grid">
+
+            <!-- Long Put -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">📉</span>
+                    <div>
+                        <div class="strat-name">Long Put</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy a put option to profit from a downside move. Limited risk, large potential reward. Best in high-IV environments before a sharp fall. Time decay is your enemy.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Put (ATM or OTM)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Strike − Premium (near zero)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Strike − Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Sharp downside move</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Very Low</span></div>
+                </div>
+            </div>
+
+            <!-- Bear Put Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🐻</span>
+                    <div>
+                        <div class="strat-name">Bear Put Spread</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy a higher-strike put and sell a lower-strike put. Reduces net debit while capping maximum profit. Cost-efficient way to play a moderate downside move.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Put (higher strike)</span>
+                    <span class="leg-pill leg-sell">SELL Put (lower strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Strike Diff − Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Net Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Higher Strike − Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Moderate bearish move</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Low</span></div>
+                </div>
+            </div>
+
+            <!-- Bear Call Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">📊</span>
+                    <div>
+                        <div class="strat-name">Bear Call Spread (Credit)</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell a lower-strike call and buy a higher-strike call. Collect premium upfront. Profits when the underlying stays below the short call strike at expiry.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL Call (lower strike)</span>
+                    <span class="leg-pill leg-buy">BUY Call (higher strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Net Credit Received</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Strike Diff − Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Short Call + Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Mild bearish / high IV</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Short Futures -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🔻</span>
+                    <div>
+                        <div class="strat-name">Short Futures</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell Nifty / BankNifty futures contract. High leverage, no time decay. Profits from every point of downward movement. Requires strict stop-loss above entry.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL Futures Contract</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited (until zero)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Unlimited (use SL)</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Entry Price</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Strong bearish trend</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Very Low</span></div>
+                </div>
+            </div>
+
+            <!-- Protective Put -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🧯</span>
+                    <div>
+                        <div class="strat-name">Protective Put</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Hold long equity / ETF and buy an OTM put as insurance. Limits downside loss while retaining full upside. Also called portfolio insurance — premium is the insurance cost.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">HOLD Underlying</span>
+                    <span class="leg-pill leg-buy">BUY Put (OTM)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited (upside)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Cost − Strike + Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Cost + Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Hedging long portfolio</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Put Ratio Back Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🌊</span>
+                    <div>
+                        <div class="strat-name">Put Ratio Back Spread</div>
+                        <span class="strat-tag tag-bearish">Bearish</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell 1 higher-strike put, buy 2 (or more) lower-strike puts. Benefits from a very large downward move. Can carry a net credit. Risk exists in the middle zone.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL 1× Put (higher strike)</span>
+                    <span class="leg-pill leg-buy">BUY 2× Put (lower strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Large (below breakeven)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Near lower strike at expiry</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Lower Strike − Max Loss</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Big crash expected</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">High</span></div>
+                </div>
+            </div>
+
+        </div><!-- /bearish grid -->
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  NEUTRAL  ───────────────────────────── -->
+    <div id="neutral">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(0,191,255,0.12);">🔵</div>
+            <div>
+                <div class="section-title">Neutral / Range-Bound Strategies</div>
+                <div class="section-subtitle">Use when the market is expected to stay within a range or consolidate</div>
+            </div>
+        </div>
+
+        <div class="strategies-grid">
+
+            <!-- Short Straddle -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">⚖️</span>
+                    <div>
+                        <div class="strat-name">Short Straddle</div>
+                        <span class="strat-tag tag-neutral">Neutral</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell an ATM call and ATM put at the same strike. Profit from time decay when the market stays sideways. High risk if market makes a big move in either direction.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL ATM Call</span>
+                    <span class="leg-pill leg-sell">SELL ATM Put</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Total Premium Collected</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Unlimited (both sides)</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Strike ± Total Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Low VIX / consolidation</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Short Strangle -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🤝</span>
+                    <div>
+                        <div class="strat-name">Short Strangle</div>
+                        <span class="strat-tag tag-neutral">Neutral</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell OTM call and OTM put at different strikes. Wider profit zone than short straddle but lower premium collected. Popular with weekly expiry traders on Nifty.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL OTM Call</span>
+                    <span class="leg-pill leg-sell">SELL OTM Put</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Total Premium Collected</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Unlimited (both sides)</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">OTM Strike ± Total Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Range-bound, low VIX</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Iron Condor -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🦅</span>
+                    <div>
+                        <div class="strat-name">Iron Condor</div>
+                        <span class="strat-tag tag-neutral">Neutral</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Combine a Bull Put Spread + Bear Call Spread. Defined risk, defined reward. Wide profit zone. Extremely popular on weekly Nifty expiry for consistent income generation.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL OTM Put</span>
+                    <span class="leg-pill leg-buy">BUY Lower Put</span>
+                    <span class="leg-pill leg-sell">SELL OTM Call</span>
+                    <span class="leg-pill leg-buy">BUY Higher Call</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Net Credit Received</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Strike Diff − Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Between 2 breakevens</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Sideways expiry play</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Iron Butterfly -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🦋</span>
+                    <div>
+                        <div class="strat-name">Iron Butterfly</div>
+                        <span class="strat-tag tag-neutral">Neutral</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell ATM straddle + buy OTM wings for protection. Higher premium collected than Iron Condor but narrower profit zone. Profits maximally when price expires exactly at ATM strike.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY OTM Put</span>
+                    <span class="leg-pill leg-sell">SELL ATM Put</span>
+                    <span class="leg-pill leg-sell">SELL ATM Call</span>
+                    <span class="leg-pill leg-buy">BUY OTM Call</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Net Credit (at ATM expiry)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Wing Width − Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">ATM Strike ± Net Credit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Pinning to a level</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">High</span></div>
+                </div>
+            </div>
+
+            <!-- Calendar Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">📅</span>
+                    <div>
+                        <div class="strat-name">Calendar Spread (Time Spread)</div>
+                        <span class="strat-tag tag-neutral">Neutral</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Sell a near-term option and buy a same-strike far-term option. Profits from time decay difference between two expiries. Low capital requirement, theta decay is your friend.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-sell">SELL Near-Expiry Option</span>
+                    <span class="leg-pill leg-buy">BUY Far-Expiry Option</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Limited (near expiry time)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Net Debit Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Depends on IV difference</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Low IV, sideways market</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">High</span></div>
+                </div>
+            </div>
+
+        </div><!-- /neutral grid -->
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  VOLATILE  ───────────────────────────── -->
+    <div id="volatile">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,165,0,0.15);">🟠</div>
+            <div>
+                <div class="section-title">High-Volatility Strategies</div>
+                <div class="section-subtitle">Use when a big move is expected but direction is uncertain (events, results, RBI)</div>
+            </div>
+        </div>
+
+        <div class="strategies-grid">
+
+            <!-- Long Straddle -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">💥</span>
+                    <div>
+                        <div class="strat-name">Long Straddle</div>
+                        <span class="strat-tag tag-volatile">Volatile</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy ATM call and ATM put at same strike. Profit from a large move in either direction. Time decay is the enemy — best entered when IV is low before a big event.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY ATM Call</span>
+                    <span class="leg-pill leg-buy">BUY ATM Put</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited (either side)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Total Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Strike ± Total Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Budget / RBI / Elections</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Low</span></div>
+                </div>
+            </div>
+
+            <!-- Long Strangle -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🌪️</span>
+                    <div>
+                        <div class="strat-name">Long Strangle</div>
+                        <span class="strat-tag tag-volatile">Volatile</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy OTM call and OTM put. Cheaper than long straddle but needs a larger move to be profitable. Ideal when a big breakout is expected but premium is expensive.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY OTM Call</span>
+                    <span class="leg-pill leg-buy">BUY OTM Put</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Unlimited (either side)</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Total Premium Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">OTM Strikes ± Total Premium</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Large event play</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Low</span></div>
+                </div>
+            </div>
+
+            <!-- Long Call Butterfly -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🦁</span>
+                    <div>
+                        <div class="strat-name">Long Call Butterfly</div>
+                        <span class="strat-tag tag-volatile">Volatile</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy lower call, sell 2 middle calls, buy higher call. Low cost, defined risk. Profits near the middle strike at expiry. Use when IV is high and you expect a calm expiry later.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY 1× Call (low)</span>
+                    <span class="leg-pill leg-sell">SELL 2× Call (mid)</span>
+                    <span class="leg-pill leg-buy">BUY 1× Call (high)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Middle − Lower − Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Net Debit Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Lower + Net Debit &amp; Upper − Net Debit</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">Post-event IV crush</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">High</span></div>
+                </div>
+            </div>
+
+            <!-- Diagonal Spread -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">↗️</span>
+                    <div>
+                        <div class="strat-name">Diagonal Spread</div>
+                        <span class="strat-tag tag-volatile">Volatile</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Buy a longer-dated option and sell a nearer-dated option at a different strike. Combines benefits of calendar and vertical spreads. Versatile — can adapt to changing outlook.</p>
+                <div class="legs-list">
+                    <span class="leg-pill leg-buy">BUY Far-Expiry Option (lower strike)</span>
+                    <span class="leg-pill leg-sell">SELL Near-Expiry Option (higher strike)</span>
+                </div>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Max Profit</span><span class="meta-value green">Varies by expiry &amp; IV</span></div>
+                    <div class="meta-row"><span class="meta-label">Max Loss</span><span class="meta-value red">Net Debit Paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Breakeven</span><span class="meta-value blue">Requires modelling</span></div>
+                    <div class="meta-row"><span class="meta-label">Best For</span><span class="meta-value">IV skew exploitation</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">Very High</span></div>
+                </div>
+            </div>
+
+        </div><!-- /volatile grid -->
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  RISK MANAGEMENT  ───────────────────────────── -->
+    <div id="risk">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(167,139,250,0.15);">🛡️</div>
+            <div>
+                <div class="section-title">Risk Management Strategies</div>
+                <div class="section-subtitle">Protect your capital and limit losses regardless of market direction</div>
+            </div>
+        </div>
+
+        <div class="strategies-grid">
+
+            <!-- Stop-Loss Orders -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🚦</span>
+                    <div>
+                        <div class="strat-name">Stop-Loss Orders</div>
+                        <span class="strat-tag tag-hedge">Risk Mgmt</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Automatically exit a losing position when it hits a pre-defined price. The most fundamental risk management tool. Use hard SL for options (e.g. 50% of premium paid) and trailing SL for futures.</p>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Type</span><span class="meta-value purple">Hard / Trailing SL</span></div>
+                    <div class="meta-row"><span class="meta-label">Options SL Rule</span><span class="meta-value orange">Exit at 50% of premium paid</span></div>
+                    <div class="meta-row"><span class="meta-label">Futures SL Rule</span><span class="meta-value orange">20–30 points from entry</span></div>
+                    <div class="meta-row"><span class="meta-label">Risk Reduction</span><span class="meta-value green">High</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Very Low</span></div>
+                </div>
+            </div>
+
+            <!-- Position Sizing -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">⚖️</span>
+                    <div>
+                        <div class="strat-name">Position Sizing (1–2% Rule)</div>
+                        <span class="strat-tag tag-hedge">Risk Mgmt</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Never risk more than 1–2% of total capital on a single trade. Prevents a single bad trade from causing irreparable damage to your portfolio. Apply consistently across all strategies.</p>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Rule</span><span class="meta-value purple">Risk ≤ 1–2% per trade</span></div>
+                    <div class="meta-row"><span class="meta-label">Capital ₹5 L</span><span class="meta-value orange">Max risk = ₹5,000–₹10,000</span></div>
+                    <div class="meta-row"><span class="meta-label">Capital ₹10 L</span><span class="meta-value orange">Max risk = ₹10,000–₹20,000</span></div>
+                    <div class="meta-row"><span class="meta-label">Risk Reduction</span><span class="meta-value green">Very High</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value green">Low</span></div>
+                </div>
+            </div>
+
+            <!-- Diversification -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🌐</span>
+                    <div>
+                        <div class="strat-name">Diversification Across Strategies</div>
+                        <span class="strat-tag tag-hedge">Risk Mgmt</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Combine directional trades with premium-selling strategies. When one strategy suffers, the other may compensate. Smoothens your P&amp;L curve over time and reduces dependence on market direction.</p>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Allocation Example</span><span class="meta-value purple">40% Iron Condor / 30% Directional / 30% Hedge</span></div>
+                    <div class="meta-row"><span class="meta-label">Rebalance</span><span class="meta-value orange">Monthly or after large moves</span></div>
+                    <div class="meta-row"><span class="meta-label">Risk Reduction</span><span class="meta-value green">Medium–High</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value orange">Medium</span></div>
+                </div>
+            </div>
+
+            <!-- Delta Hedging -->
+            <div class="strat-card">
+                <div class="strat-card-header">
+                    <span class="strat-emoji">🔬</span>
+                    <div>
+                        <div class="strat-name">Delta Hedging</div>
+                        <span class="strat-tag tag-hedge">Risk Mgmt</span>
+                    </div>
+                </div>
+                <p class="strat-desc">Neutralise the directional risk of an options position by taking an offsetting position in the underlying or futures. Re-hedge dynamically as delta changes. Used by professional traders and market makers.</p>
+                <div class="strat-meta">
+                    <div class="meta-row"><span class="meta-label">Target Delta</span><span class="meta-value purple">Portfolio Δ ≈ 0</span></div>
+                    <div class="meta-row"><span class="meta-label">Re-hedge Trigger</span><span class="meta-value orange">Δ drift &gt; 0.10</span></div>
+                    <div class="meta-row"><span class="meta-label">Works Best With</span><span class="meta-value blue">Large option books</span></div>
+                    <div class="meta-row"><span class="meta-label">Risk Reduction</span><span class="meta-value green">Very High (directional)</span></div>
+                    <div class="meta-row"><span class="meta-label">Complexity</span><span class="meta-value red">Very High</span></div>
+                </div>
+            </div>
+
+        </div><!-- /risk grid -->
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  COMPARISON TABLE  ───────────────────────────── -->
+    <div id="comparison">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(45,212,191,0.15);">📋</div>
+            <div>
+                <div class="section-title">Quick Comparison Table</div>
+                <div class="section-subtitle">Side-by-side overview of all strategies at a glance</div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="comp-table">
+                <thead>
+                    <tr>
+                        <th>Strategy</th>
+                        <th>Market View</th>
+                        <th>Max Profit</th>
+                        <th>Max Loss</th>
+                        <th>Best IV Environment</th>
+                        <th>Complexity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Long Call</td><td style="color:var(--success)">🟢 Bullish</td><td>Unlimited</td><td>Premium</td><td>Low IV</td><td>Very Low</td></tr>
+                    <tr><td>Bull Call Spread</td><td style="color:var(--success)">🟢 Bullish</td><td>Capped</td><td>Net Debit</td><td>Low–Mid IV</td><td>Low</td></tr>
+                    <tr><td>Covered Call</td><td style="color:var(--success)">🟢 Mild Bullish</td><td>Capped</td><td>Large</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Bull Put Spread</td><td style="color:var(--success)">🟢 Bullish</td><td>Net Credit</td><td>Strike Diff</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Long Futures</td><td style="color:var(--success)">🟢 Bullish</td><td>Unlimited</td><td>Unlimited</td><td>Any</td><td>Very Low</td></tr>
+                    <tr><td>Synthetic Long</td><td style="color:var(--success)">🟢 Bullish</td><td>Unlimited</td><td>Large</td><td>Any</td><td>Medium</td></tr>
+                    <tr><td>Call Ratio Back Spread</td><td style="color:var(--success)">🟢 Very Bullish</td><td>Unlimited</td><td>At mid-strike</td><td>Low IV</td><td>High</td></tr>
+                    <tr><td>Long Put</td><td style="color:var(--danger)">🔴 Bearish</td><td>Large</td><td>Premium</td><td>Low IV</td><td>Very Low</td></tr>
+                    <tr><td>Bear Put Spread</td><td style="color:var(--danger)">🔴 Bearish</td><td>Capped</td><td>Net Debit</td><td>Low–Mid IV</td><td>Low</td></tr>
+                    <tr><td>Bear Call Spread</td><td style="color:var(--danger)">🔴 Bearish</td><td>Net Credit</td><td>Strike Diff</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Short Futures</td><td style="color:var(--danger)">🔴 Bearish</td><td>Unlimited</td><td>Unlimited</td><td>Any</td><td>Very Low</td></tr>
+                    <tr><td>Protective Put</td><td style="color:var(--danger)">🔴 Hedge</td><td>Unlimited</td><td>Capped</td><td>Low IV</td><td>Medium</td></tr>
+                    <tr><td>Put Ratio Back Spread</td><td style="color:var(--danger)">🔴 Very Bearish</td><td>Large</td><td>At mid-strike</td><td>Low IV</td><td>High</td></tr>
+                    <tr><td>Short Straddle</td><td style="color:var(--accent)">🔵 Neutral</td><td>Net Premium</td><td>Unlimited</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Short Strangle</td><td style="color:var(--accent)">🔵 Neutral</td><td>Net Premium</td><td>Unlimited</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Iron Condor</td><td style="color:var(--accent)">🔵 Neutral</td><td>Net Credit</td><td>Wing Width</td><td>High IV</td><td>Medium</td></tr>
+                    <tr><td>Iron Butterfly</td><td style="color:var(--accent)">🔵 Neutral</td><td>Net Credit</td><td>Wing Width</td><td>High IV</td><td>High</td></tr>
+                    <tr><td>Calendar Spread</td><td style="color:var(--accent)">🔵 Neutral</td><td>Limited</td><td>Net Debit</td><td>Low IV</td><td>High</td></tr>
+                    <tr><td>Long Straddle</td><td style="color:var(--warning)">🟠 Volatile</td><td>Unlimited</td><td>Net Debit</td><td>Low IV (before event)</td><td>Low</td></tr>
+                    <tr><td>Long Strangle</td><td style="color:var(--warning)">🟠 Volatile</td><td>Unlimited</td><td>Net Debit</td><td>Low IV (before event)</td><td>Low</td></tr>
+                    <tr><td>Long Butterfly</td><td style="color:var(--warning)">🟠 Neutral/Vol</td><td>Capped</td><td>Net Debit</td><td>High IV</td><td>High</td></tr>
+                    <tr><td>Diagonal Spread</td><td style="color:var(--warning)">🟠 Flexible</td><td>Varies</td><td>Net Debit</td><td>IV Skew</td><td>Very High</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  TIPS  ───────────────────────────── -->
+    <div id="tips">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(45,212,191,0.12);">💡</div>
+            <div>
+                <div class="section-title">Pro Tips &amp; Best Practices</div>
+                <div class="section-subtitle">Key principles every NSE options trader should follow</div>
+            </div>
+        </div>
+
+        <div class="tips-grid">
+            <div class="tip-card">
+                <div class="tip-card-title">📅 Expiry Timing</div>
+                <ul>
+                    <li>Sell premium 7–10 DTE for maximum theta decay</li>
+                    <li>Avoid holding short options into last 1–2 days (gamma risk)</li>
+                    <li>Use weekly expiry for income; monthly for swing trades</li>
+                    <li>Roll positions 2–3 DTE if still profitable</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <div class="tip-card-title">📊 IV-Based Selection</div>
+                <ul>
+                    <li>India VIX &gt; 20: Sell premium strategies (Condor, Strangle)</li>
+                    <li>India VIX &lt; 15: Buy options (Straddle, Strangle, Spreads)</li>
+                    <li>Avoid buying straddles when IV is already elevated</li>
+                    <li>Check IV Percentile before every trade entry</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <div class="tip-card-title">🎯 Strike Selection</div>
+                <ul>
+                    <li>Short Strangle: sell 1 standard deviation OTM strikes</li>
+                    <li>Iron Condor: use 10–15 delta for short strikes</li>
+                    <li>Credit spreads: collect at least 1/3 of the width</li>
+                    <li>Respect max pain and strong support/resistance levels</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <div class="tip-card-title">🛡️ Trade Management</div>
+                <ul>
+                    <li>Take profits at 50% of max credit on winning positions</li>
+                    <li>Close losing positions at 200% of credit received (2× loss)</li>
+                    <li>Adjust positions when price breaches short strike</li>
+                    <li>Avoid over-adjusting — sometimes letting go is better</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <div class="tip-card-title">🏦 Capital Allocation</div>
+                <ul>
+                    <li>Never deploy more than 50% of capital in one expiry</li>
+                    <li>Keep 20–30% in cash as a buffer for adjustments</li>
+                    <li>Allocate separately for intraday vs swing vs positional</li>
+                    <li>Track overall portfolio delta, not just per-trade</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <div class="tip-card-title">📰 Event Calendar</div>
+                <ul>
+                    <li>RBI Policy: Buy straddle 3–4 days before; exit on event day</li>
+                    <li>Budget: Volatility spikes — avoid short premium entry before</li>
+                    <li>FII Data (Wednesday): Watch for large OI shifts</li>
+                    <li>US Fed meetings can affect Nifty opening significantly</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- ─────────────────────────────  LEGEND  ───────────────────────────── -->
+    <div id="legend">
+        <div class="section-header">
+            <div class="section-icon" style="background:rgba(255,255,255,0.06);">🗺️</div>
+            <div>
+                <div class="section-title">Legend &amp; Key Terms</div>
+                <div class="section-subtitle">Quick reference for common options terminology</div>
+            </div>
+        </div>
+
+        <div class="legend-grid">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span><div><b>ATM</b> — At the Money (strike = spot price)</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--success)"></span><div><b>ITM</b> — In the Money (call: strike &lt; spot)</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span><div><b>OTM</b> — Out of the Money (call: strike &gt; spot)</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--warning)"></span><div><b>IV</b> — Implied Volatility of an option</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span><div><b>PCR</b> — Put-Call Ratio (open interest based)</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--teal)"></span><div><b>DTE</b> — Days to Expiry</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#f472b6"></span><div><b>Theta</b> — Daily time decay of an option</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#60a5fa"></span><div><b>Delta</b> — Sensitivity to price movement</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#34d399"></span><div><b>Gamma</b> — Rate of change of delta</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#fb923c"></span><div><b>Vega</b> — Sensitivity to IV change</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#e879f9"></span><div><b>Max Pain</b> — Strike where options buyers lose max</div></div>
+            <div class="legend-item"><span class="legend-dot" style="background:#a3e635"></span><div><b>OI</b> — Open Interest in options chain</div></div>
+        </div>
+    </div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════  FOOTER  ═══════════════════════════ -->
+<footer class="page-footer">
+    <p>📊 <strong>NSEAnalyzer — Trading Strategies Dashboard</strong> &nbsp;|&nbsp; Static Reference Document</p>
+    <p style="margin-top:6px;">This document is for <strong>educational purposes only</strong> and does not constitute financial advice.<br>
+    Options trading involves significant risk. Always trade with proper risk management and consult a SEBI-registered advisor.</p>
+</footer>
+
+<!-- ── Smooth scroll + active nav link ── -->
+<script>
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    // Highlight active nav link on scroll
+    const sections = ['bullish','bearish','neutral','volatile','risk','comparison'];
+    const navLinks = document.querySelectorAll('.nav-link');
+    window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && window.scrollY >= el.offsetTop - 80) current = id;
+        });
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+        });
+    }, { passive: true });
+</script>
+</body>
+</html>
